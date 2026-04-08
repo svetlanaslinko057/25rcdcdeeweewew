@@ -2,18 +2,18 @@
 
 ## Project Overview
 **Name:** Development OS  
-**Type:** SaaS Web Platform  
+**Type:** SaaS Web Platform - Production Machine  
 **Tech Stack:** React + FastAPI + MongoDB  
 **Date Started:** April 8, 2026  
 **Last Updated:** April 8, 2026
 
 ## Problem Statement
-Development OS is an operating system for managed digital product development. It provides a unified managed layer between clients and production, where clients don't need to manage development themselves - the platform transforms their ideas into structured, controlled product delivery processes.
+Development OS is an operating system for managed digital product development. The platform transforms client ideas into structured, controlled product delivery processes through a complete production pipeline.
 
 ## Core Architecture
 
-### Entry Flow (IMPLEMENTED)
-Two paths from Entry Page:
+### Entry Flow
+Two paths from Landing Page:
 1. **"I want to build a product"** → Client Auth → Client Dashboard
 2. **"I want to work on projects"** → Builder Auth (skill selection) → Developer/Tester Dashboard
 
@@ -21,105 +21,88 @@ Two paths from Entry Page:
 1. **Client** - Creates requests, views projects, approves deliverables
 2. **Developer** - Receives assignments, logs work, submits results
 3. **Tester** - Validates submissions, reports issues
-4. **Admin** - Manages entire production pipeline
+4. **Admin** - Manages entire production pipeline via Scope Builder & Assignment Engine
 
-### Key Principle
-**Client ↔ Platform ↔ Internal Team**
-- Clients don't communicate directly with developers
-- Role determined by actions, not explicit selection
+## Production Pipeline (IMPLEMENTED)
+
+```
+Request (Client)
+  ↓
+ProductDefinition (Admin via Scope Builder)
+  ↓
+Scope + ScopeItems (Admin via Scope Builder)
+  ↓
+WorkUnits (Admin via Scope Builder)
+  ↓
+Assignment Engine → Developer
+  ↓
+WorkLog + Submission (Developer)
+  ↓
+Review (Admin)
+  ↓
+Validation → Tester
+  ↓
+Deliverable → Client
+  ↓
+Approval / Support
+```
 
 ## What's Been Implemented
 
-### Phase 1 - Core Structure (April 8, 2026)
-- [x] **Entry Page** - Two paths: build product / work on projects
-- [x] **Quick Auth** - Email-based, no complex OAuth required
-- [x] **Client Auth Flow** - Email → Onboarding (name, company) → Dashboard
-- [x] **Builder Auth Flow** - Skill selection → Email → Onboarding → Dashboard
-- [x] **Client Dashboard** - Projects, requests, new request button, stats
-- [x] **Developer Dashboard** - Assignments, work units, performance metrics
-- [x] **Tester Dashboard** - Validation tasks, pass/fail, issues, history
-- [x] **Admin Dashboard** - Work board, requests, projects, review queue, users
-- [x] **New Request Page** - Single textarea for idea, example ideas
-- [x] **Project Details Page** - Progress, updates, deliverables, actions
+### Phase 1 - Core Platform (April 8, 2026)
+- [x] Landing Page with original design + Entry Flow
+- [x] Quick Auth (email-based, session cookies)
+- [x] Client/Developer/Tester/Admin Dashboards
+- [x] New Request Page
 
-### Backend Endpoints (IMPLEMENTED)
-**Auth:**
-- `POST /api/auth/quick` - Check/create user session
-- `POST /api/auth/onboarding` - Complete user registration
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - Logout
-- `PUT /api/auth/role` - Admin: change user role
+### Phase 2 - Production Machine (April 8, 2026)
+- [x] **SCOPE BUILDER** - 4-step flow:
+  - Step 1: Product Overview (type, goal, audience, timeline)
+  - Step 2: Scope Items (features with auto-generation hints)
+  - Step 3: Work Units (breakdown with hour estimates)
+  - Step 4: Review & Launch (creates ProductDefinition, Scope, ScopeItems, WorkUnits, Project)
 
-**Public:**
-- `GET /api/` - API version
-- `GET /api/stats` - Platform statistics
-- `GET /api/portfolio/cases` - Portfolio cases
-- `GET /api/portfolio/featured` - Featured cases
+- [x] **ASSIGNMENT ENGINE** - Developer scoring system:
+  - Skill match (30%)
+  - Level score (20%)
+  - Rating (20%)
+  - Load availability (15%)
+  - Experience (10%)
+  - Speed (5%)
+  - Top 5 candidates with reasons
+  - "Assign Best Match" auto-assignment
 
-**Client:**
-- `POST /api/requests` - Create request
-- `GET /api/requests` - Get my requests
-- `GET /api/projects/mine` - Get my projects
-- `GET /api/projects/{id}` - Project details
-- `GET /api/projects/{id}/deliverables` - Deliverables
-- `POST /api/deliverables/{id}/approve` - Approve
-- `POST /api/deliverables/{id}/reject` - Reject
-- `POST /api/projects/{id}/support` - Create support ticket
+- [x] **DELIVERABLE BUILDER** - Results delivery:
+  - Link completed work units
+  - Add resource links
+  - Send to client for approval
 
-**Developer:**
-- `GET /api/developer/assignments` - My assignments
-- `GET /api/developer/work-units` - My work units
-- `POST /api/work-units/{id}/log` - Log hours
-- `POST /api/work-units/{id}/submit` - Submit work
+### Backend Endpoints (NEW)
+**Assignment Engine:**
+- `GET /api/admin/assignment-engine/{work_unit_id}/candidates` - Get ranked candidates
+- `POST /api/admin/assignment-engine/{work_unit_id}/assign` - Assign to specific dev
+- `POST /api/admin/assignment-engine/{work_unit_id}/assign-best` - Auto-assign best
 
-**Tester:**
-- `GET /api/tester/validation-tasks` - My validations
-- `POST /api/validation/{id}/pass` - Pass validation
-- `POST /api/validation/{id}/fail` - Fail validation
-- `POST /api/validation/{id}/issue` - Create issue
+**Deliverables:**
+- `POST /api/admin/deliverable` - Create deliverable (JSON body)
 
-**Admin:**
-- Full CRUD for users, requests, projects, scopes, work units, assignments, reviews, validations, deliverables
-
-### Database Collections
-- users, user_sessions
-- requests, product_definitions
-- scopes, scope_items
-- projects, work_units
-- assignments, work_logs
-- submissions, reviews
-- validation_tasks, validation_issues
-- deliverables, support_tickets
-- portfolio_cases
-
-## Production Flow
-```
-Client Request 
-  → Admin: Product Definition 
-  → Admin: Scope + Items 
-  → Admin: Project 
-  → Admin: Work Units 
-  → Admin: Assignment → Developer
-  → Developer: Work Log + Submission
-  → Admin: Review
-  → Admin: Validation → Tester
-  → Tester: Pass/Fail
-  → Admin: Deliverable → Client
-  → Client: Approve/Reject
-```
+### Frontend Routes (NEW)
+- `/admin/scope-builder/:requestId` - Scope Builder wizard
+- `/admin/work-unit/:unitId` - Work Unit detail with Assignment Panel
+- `/admin/deliverable/:projectId` - Deliverable creation
 
 ## Prioritized Backlog
 
 ### P0 - Critical (Next Sprint)
-- [ ] Scope Builder UI for Admin
-- [ ] Work Unit assignment workflow UI
-- [ ] Review and approval workflow UI
-- [ ] Deliverable creation flow
+- [ ] Developer work log UI
+- [ ] Developer submission flow
+- [ ] Admin review flow with feedback
+- [ ] Tester validation flow
 
 ### P1 - High Priority
 - [ ] Email notifications
-- [ ] Real-time updates with WebSocket
-- [ ] Client messaging system
+- [ ] Real-time updates (WebSocket)
+- [ ] Client messaging/support system
 - [ ] File attachments
 
 ### P2 - Medium Priority
@@ -129,37 +112,17 @@ Client Request
 - [ ] Invoice generation
 
 ### P3 - Future
-- [ ] Mobile companion app
-- [ ] Telegram Mini App
 - [ ] AI-powered scope estimation
-- [ ] Automated testing integration
-
-## User Personas
-
-### Maria - Startup Founder (Client)
-- Needs to build MVP quickly
-- Doesn't know technical details
-- Wants transparent process
-
-### Alex - Full-Stack Developer
-- Wants clear task specifications
-- Prefers minimal client interaction
-- Appreciates fair workload distribution
-
-### Sam - QA Tester
-- Focused on user experience
-- Systematic approach to testing
-- Values clear pass/fail criteria
-
-### Jordan - Platform Admin
-- Manages entire operation
-- Needs overview of all activities
-- Makes resource allocation decisions
+- [ ] Mobile companion app
+- [ ] Telegram Mini App integration
 
 ## Technical Notes
 - Authentication: Email-based quick auth (session cookie)
 - Session: httpOnly cookies, 7-day expiry
-- Database: MongoDB with custom user_id
-- Frontend: React with TailwindCSS
-- Backend: FastAPI with Motor (async MongoDB)
-- Design: Dark theme (#0A0A0A), sharp edges, no rounded corners
+- Database: MongoDB with custom IDs
+- Assignment scoring: Weighted formula for developer matching
+- Auto-generation: Work units auto-suggested based on scope item type
+
+## URLs
+- Frontend: https://auth-platform-20.preview.emergentagent.com
+- API: https://auth-platform-20.preview.emergentagent.com/api
