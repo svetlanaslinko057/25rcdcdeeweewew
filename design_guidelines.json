@@ -1,0 +1,124 @@
+{
+  "theme": "Dark",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "vibe": "Elite, structured, transparent, high-end, cyber-industrial premium, cinematic OS",
+  "colors": {
+    "background": "#0A0A0A",
+    "foreground": "#FFFFFF",
+    "primary": "#FFFFFF",
+    "primary_foreground": "#0A0A0A",
+    "secondary": "#1A1A1A",
+    "secondary_foreground": "#E5E5E5",
+    "accent": "#FF3B30",
+    "accent_foreground": "#FFFFFF",
+    "muted": "#1F1F1F",
+    "muted_foreground": "#A3A3A3",
+    "border": "#262626",
+    "input": "#1A1A1A",
+    "ring": "#FF3B30",
+    "card": "#0A0A0A",
+    "card_foreground": "#FFFFFF",
+    "popover": "#0A0A0A",
+    "popover_foreground": "#FFFFFF"
+  },
+  "typography": {
+    "heading_font": "Cabinet Grotesk",
+    "body_font": "Inter",
+    "mono_font": "JetBrains Mono",
+    "scale": {
+      "h1": "text-5xl sm:text-6xl tracking-tighter font-black",
+      "h2": "text-3xl sm:text-4xl tracking-tight font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-semibold",
+      "h4": "text-lg font-medium",
+      "body": "text-base leading-relaxed text-muted-foreground",
+      "small": "text-sm",
+      "overline": "text-xs uppercase tracking-[0.2em] font-mono text-muted-foreground"
+    }
+  },
+  "layout": {
+    "spacing_scale": "p-2, p-4, p-8, p-12, p-16, p-24, p-32",
+    "container_padding": "p-8",
+    "radius": "rounded-none",
+    "marketing_grid": "grid-cols-1 md:grid-cols-12 gap-8 md:gap-12",
+    "dashboard_grid": "grid-cols-1 md:grid-cols-4 gap-6",
+    "dashboard_bento": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6",
+    "alignment": "Left-align paragraphs, inputs, labels, tabular data. Center hero only if visually balanced."
+  },
+  "surfaces": {
+    "header": "Crystal Glass: bg-black/60 backdrop-blur-2xl border-b border-white/10 z-50",
+    "dashboard_cards": "Flat background (bg-[#0A0A0A]), 1px subtle border (border-white/10), no shadow. Hover: slight lift (-translate-y-1) and shadow-lg",
+    "marketing_cards": "Grid Borders: border-collapse style layout, border-r border-b border-white/10",
+    "buttons": "Square edges, sharp. Explicit text color change on hover (e.g., hover:bg-white hover:text-black for primary buttons, hover:bg-white/10 for secondary). Focus uses accent red (#FF3B30) ring."
+  },
+  "animation": {
+    "transitions": "transition-transform duration-300 ease-out, transition-colors duration-200 ease-in-out",
+    "hover_states": "Explicit text color on hover. Active elements tint borders toward background hue.",
+    "libraries": [
+      "framer-motion",
+      "lucide-react"
+    ]
+  },
+  "components": {
+    "icons": "lucide-react",
+    "charts": "recharts",
+    "marketing": {
+      "strategy": "Pure HTML + Tailwind CSS. Raw div/section for overlapping/asymmetry. Do not use Shadcn structure for hero. Use fluid wide gaps.",
+      "hero_overlay": "bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/80 to-transparent",
+      "marquee": "The 'Kinetic Texture' - Massive outline text running in the background for high energy sections using JetBrains Mono."
+    },
+    "dashboard": {
+      "strategy": "Shadcn/UI components heavily customized (rounded-none, sharp borders). Pure dense data focus.",
+      "card": "Avoid Shadcn Card default. Go cardless or flat rectangular with 1px border-white/10.",
+      "forms": "Use Shadcn Form, Input, Select. Square inputs, dark bg, border-white/10.",
+      "tables": "Left aligned text, 1px border bottoms, clear hover states for rows."
+    }
+  },
+  "media": {
+    "image_urls": [
+      {
+        "category": "hero_background",
+        "url": "https://images.unsplash.com/photo-1768121496378-0644c37e7fc7?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBkYXJrJTIwb2ZmaWNlJTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc3NTY0Njg5OHww&ixlib=rb-4.1.0&q=85",
+        "description": "Tall building shrouded in fog at night. Use as dark atmospheric background for the Market page hero."
+      },
+      {
+        "category": "developer_workspace",
+        "url": "https://images.unsplash.com/photo-1607971422532-73f9d45d7a47?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwyfHxkZXZlbG9wZXIlMjBjb2RpbmclMjBzY3JlZW58ZW58MHx8fHwxNzc1NjQ2ODk5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Laptop showing code. Use in the Production Layer section or Developer Hub."
+      },
+      {
+        "category": "quality_control",
+        "url": "https://images.unsplash.com/photo-1623479322729-28b25c16b011?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwzfHxkZXZlbG9wZXIlMjBjb2RpbmclMjBzY3JlZW58ZW58MHx8fHwxNzc1NjQ2ODk5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Man using computer. Use in the Quality Layer or Tester Hub."
+      },
+      {
+        "category": "client_workspace",
+        "url": "https://images.unsplash.com/photo-1771270759486-1f7703945072?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAxODF8MHwxfHNlYXJjaHwzfHxtb2Rlcm4lMjBkYXJrJTIwb2ZmaWNlJTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc3NTY0Njg5OHww&ixlib=rb-4.1.0&q=85",
+        "description": "Modern dark conference room. Use for the Client Hub or 'Control Layer' sections."
+      },
+      {
+        "category": "sponsor_logo",
+        "url": "https://images.pexels.com/photos/10142683/pexels-photo-10142683.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Microsoft logo. Use for integrations or client list section."
+      },
+      {
+        "category": "sponsor_logo",
+        "url": "https://images.pexels.com/photos/29257597/pexels-photo-29257597.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Google logo. Use for integrations or client list section."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Strictly adhere to the dark theme #0A0A0A base background. Do not use generic grey-blues. The look is deep Obsidian, White, and Signal Red accents.",
+    "Do NOT use 'Inter' for Headings. Use 'Cabinet Grotesk', 'Space Grotesk' or another distinct Sans Serif display font. Add tracking-tighter.",
+    "Borders must be sharp (rounded-none). No friendly corners. The system is brutal, clear, and authoritative.",
+    "Use 'p-8' padding universally inside cards with borders to prevent text collision. White space is critical.",
+    "All interactive elements MUST have explicit hover states (e.g., hover:bg-white hover:text-black) and focus states with the accent red (#FF3B30).",
+    "Use grid-cols-12 with wide gaps (gap-8) for marketing sections, mimicking a 'Tetris' grid layout with asymmetrical spans (col-span-8, col-span-4).",
+    "Dashboards should use 'Control Room' grid (grid-cols-4) with gap-6. Every pixel utilized. No empty jagged bottoms.",
+    "Include 'data-testid' on all interactive elements (buttons, links, form inputs) like `data-testid=\"login-form-submit-button\"`.",
+    "Market/Landing page needs high visual impact, use motion and scroll effects. The vibe is a 'cinematic OS' showing the transparent connection between Client and Production.",
+    "Dashboard layers (Client Hub, Dev Hub, Tester Hub, Admin) prioritize density and data clarity. Eliminate all unnecessary UI chrome.",
+    "Do not use generic blue buttons. Use stark white buttons with black text, or stark black buttons with white borders. Accent Red (#FF3B30) is reserved for kinetic triggers, errors, or primary progress indicators.",
+    "Ensure 'lucide-react' icons are used uniformly with 'strokeWidth={1.5}' for a sleek, lightweight look."
+  ]
+}
