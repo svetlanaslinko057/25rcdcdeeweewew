@@ -408,6 +408,197 @@ async def logout(request: Request, response: Response):
     return {"message": "Logged out"}
 
 
+# ============ FULL AUTH SYSTEM ============
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    role: str = "client"
+    company: Optional[str] = None
+    skills: List[str] = []
+    specialization: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class DemoRequest(BaseModel):
+    role: str = "client"
+
+
+import hashlib
+
+def hash_password(password: str) -> str:
+    """Simple password hashing"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+@api_router.post("/auth/register")
+async def register_user(req: RegisterRequest, response: Response):
+    """Register new user with email/password"""
+    email = req.email.strip().lower()
+    
+    # Check if user exists
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Validate role
+    if req.role not in ["client", "developer", "tester"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    # Create user
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user_doc = {
+        "user_id": user_id,
+        "email": email,
+        "password_hash": hash_password(req.password),
+        "name": req.name.strip(),
+        "picture": None,
+        "role": req.role,
+        "company": req.company,
+        "skills": req.skills,
+        "specialization": req.specialization,
+        "level": "junior",
+        "rating": 5.0,
+        "completed_tasks": 0,
+        "active_load": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Create session
+    session_token = f"sess_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    session_doc = {
+        "session_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    # Return user without password
+    user_doc.pop("_id", None)
+    user_doc.pop("password_hash", None)
+    return user_doc
+
+
+@api_router.post("/auth/login")
+async def login_user(req: LoginRequest, response: Response):
+    """Login with email/password"""
+    email = req.email.strip().lower()
+    
+    # Find user
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Check password
+    if user.get("password_hash") and user["password_hash"] != hash_password(req.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Create session
+    session_token = f"sess_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    session_doc = {
+        "session_id": str(uuid.uuid4()),
+        "user_id": user["user_id"],
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    user.pop("password_hash", None)
+    return user
+
+
+@api_router.post("/auth/demo")
+async def demo_access(req: DemoRequest, response: Response):
+    """Quick demo access - creates temporary demo user"""
+    role = req.role if req.role in ["client", "developer", "tester", "admin"] else "client"
+    
+    # Create demo user
+    demo_id = f"demo_{uuid.uuid4().hex[:8]}"
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    
+    demo_names = {
+        "client": "Demo Client",
+        "developer": "Demo Developer",
+        "tester": "Demo Tester",
+        "admin": "Demo Admin"
+    }
+    
+    user_doc = {
+        "user_id": user_id,
+        "email": f"{demo_id}@demo.devos.io",
+        "name": demo_names.get(role, "Demo User"),
+        "picture": None,
+        "role": role,
+        "is_demo": True,
+        "skills": ["React", "Node.js", "TypeScript"] if role in ["developer", "tester"] else [],
+        "level": "middle",
+        "rating": 5.0,
+        "completed_tasks": 0,
+        "active_load": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Create session
+    session_token = f"sess_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=1)  # Demo sessions last 1 day
+    
+    session_doc = {
+        "session_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=24 * 60 * 60
+    )
+    
+    user_doc.pop("_id", None)
+    return user_doc
+
+
 @api_router.put("/auth/role")
 async def update_user_role(
     user_id: str,

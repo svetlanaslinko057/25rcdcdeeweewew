@@ -24,23 +24,23 @@ const LandingPage = () => {
 
   const handleClientPath = () => {
     if (user) {
-      navigate('/dashboard');
+      navigate('/client/dashboard');
     } else {
-      navigate('/auth/client');
+      navigate('/client/auth');
     }
   };
 
   const handleBuilderPath = () => {
     if (user) {
       const routes = {
-        developer: '/developer/hub',
-        tester: '/tester/hub',
-        admin: '/admin/work-board',
-        client: '/dashboard'
+        developer: '/developer/dashboard',
+        tester: '/tester/dashboard',
+        admin: '/admin/dashboard',
+        client: '/client/dashboard'
       };
-      navigate(routes[user.role] || '/dashboard');
+      navigate(routes[user.role] || '/client/dashboard');
     } else {
-      navigate('/auth/builder');
+      navigate('/builder/auth');
     }
   };
 
@@ -86,13 +86,13 @@ const LandingPage = () => {
           <button 
             onClick={user ? () => {
               const routes = {
-                client: '/dashboard',
-                developer: '/developer/hub',
-                tester: '/tester/hub',
-                admin: '/admin/work-board'
+                client: '/client/dashboard',
+                developer: '/developer/dashboard',
+                tester: '/tester/dashboard',
+                admin: '/admin/dashboard'
               };
-              navigate(routes[user.role] || '/dashboard');
-            } : () => navigate('/auth/client')}
+              navigate(routes[user.role] || '/client/dashboard');
+            } : () => navigate('/client/auth')}
             className="bg-[#0A0A0A] text-white px-6 py-3 text-[15px] font-medium rounded-full hover:bg-[#0A0A0A]/90 transition-colors inline-flex items-center gap-2"
             data-testid="login-btn"
           >

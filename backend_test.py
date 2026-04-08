@@ -193,41 +193,64 @@ class DevelopmentOSAPITester:
             return False
         return False
 
-    def test_builder_auth_flow(self):
-        """Test builder auth flow with skill selection"""
+    def test_register_login_flow(self):
+        """Test new register/login flow"""
         test_email = f"dev_{uuid.uuid4().hex[:8]}@example.com"
         
-        # Test quick auth for developer
+        # Test registration
         success, response = self.run_test(
-            "Builder Quick Auth",
+            "Register Developer",
             "POST",
-            "auth/quick",
+            "auth/register",
             200,
             data={
                 "email": test_email,
+                "password": "TestPass123!",
+                "name": "Test Developer",
                 "role": "developer",
-                "skill": "frontend"
+                "skills": ["React", "Node.js"],
+                "specialization": "fullstack"
             }
         )
         
-        if not success or not response.get("isNew"):
+        if not success or not response.get("user_id"):
             return False
             
-        # Test onboarding for developer
+        # Test login with same credentials
         success, response = self.run_test(
-            "Builder Onboarding",
+            "Login Developer",
             "POST",
-            "auth/onboarding", 
+            "auth/login",
             200,
             data={
                 "email": test_email,
-                "name": "Test Developer",
-                "role": "developer",
-                "skills": ["frontend"]
+                "password": "TestPass123!"
             }
         )
         
         return success and response.get("role") == "developer"
+
+    def test_demo_access_flows(self):
+        """Test demo access for all roles"""
+        roles = ["client", "developer", "tester", "admin"]
+        all_success = True
+        
+        for role in roles:
+            success, response = self.run_test(
+                f"Demo Access - {role.title()}",
+                "POST",
+                "auth/demo",
+                200,
+                data={"role": role}
+            )
+            
+            if success and response.get("role") == role and response.get("is_demo"):
+                print(f"   ✅ Demo {role} created successfully")
+            else:
+                print(f"   ❌ Demo {role} failed")
+                all_success = False
+                
+        return all_success
 
     def test_tester_auth_flow(self):
         """Test tester auth flow"""
@@ -398,9 +421,9 @@ def main():
             tester.test_unauthorized_access()
     
     # Test builder auth flows
-    print("\n👨‍💻 Testing Builder Auth Flows...")
-    tester.test_builder_auth_flow()
-    tester.test_tester_auth_flow()
+    print("\n👨‍💻 Testing New Auth Flows...")
+    tester.test_register_login_flow()
+    tester.test_demo_access_flows()
     
     # Print final summary
     all_passed = tester.print_summary()

@@ -121,7 +121,7 @@ const ClientDashboard = () => {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <button
-                onClick={() => navigate('/request/new')}
+                onClick={() => navigate('/client/request/new')}
                 className="group p-6 border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all flex items-center gap-4"
                 data-testid="new-request-btn"
               >
@@ -173,7 +173,7 @@ const ClientDashboard = () => {
                   <h3 className="text-lg font-medium mb-2">No projects yet</h3>
                   <p className="text-white/50 text-sm mb-6">Start by creating your first project request</p>
                   <button
-                    onClick={() => navigate('/request/new')}
+                    onClick={() => navigate('/client/request/new')}
                     className="bg-white text-black px-6 py-3 font-medium hover:bg-white/90 transition-all"
                     data-testid="create-first-project-btn"
                   >

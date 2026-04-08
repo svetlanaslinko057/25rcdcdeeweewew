@@ -1,13 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import axios from "axios";
 import { createContext, useContext } from "react";
 
 // Pages
 import LandingPage from "@/pages/LandingPage";
-import ClientAuth from "@/pages/ClientAuth";
-import BuilderAuth from "@/pages/BuilderAuth";
+import ClientAuthPage from "@/pages/ClientAuthPage";
+import BuilderAuthPage from "@/pages/BuilderAuthPage";
+import AdminLoginPage from "@/pages/AdminLoginPage";
 import ClientDashboard from "@/pages/ClientDashboard";
 import DeveloperDashboard from "@/pages/DeveloperDashboard";
 import TesterDashboard from "@/pages/TesterDashboard";
@@ -77,48 +78,27 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (!user) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    // Redirect to appropriate auth page based on path
+    if (location.pathname.startsWith('/admin')) {
+      return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    } else if (location.pathname.startsWith('/developer') || location.pathname.startsWith('/tester')) {
+      return <Navigate to="/builder/auth" state={{ from: location }} replace />;
+    } else {
+      return <Navigate to="/client/auth" state={{ from: location }} replace />;
+    }
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     const dashboardRoutes = {
-      client: '/dashboard',
-      developer: '/developer/hub',
-      tester: '/tester/hub',
-      admin: '/admin/work-board'
+      client: '/client/dashboard',
+      developer: '/developer/dashboard',
+      tester: '/tester/dashboard',
+      admin: '/admin/dashboard'
     };
-    return <Navigate to={dashboardRoutes[user.role] || '/dashboard'} replace />;
+    return <Navigate to={dashboardRoutes[user.role] || '/client/dashboard'} replace />;
   }
 
   return children;
-};
-
-// Role-based Dashboard Router
-const DashboardRouter = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
-
-  switch (user.role) {
-    case 'admin':
-      return <Navigate to="/admin/work-board" replace />;
-    case 'developer':
-      return <Navigate to="/developer/hub" replace />;
-    case 'tester':
-      return <Navigate to="/tester/hub" replace />;
-    default:
-      return <ClientDashboard />;
-  }
 };
 
 function AppRouter() {
@@ -127,14 +107,22 @@ function AppRouter() {
       {/* Public Routes */}
       <Route path="/" element={<LandingPage />} />
       
-      {/* Auth Routes */}
-      <Route path="/auth/client" element={<ClientAuth />} />
-      <Route path="/auth/builder" element={<BuilderAuth />} />
+      {/* Auth Routes - New Structure */}
+      <Route path="/client/auth" element={<ClientAuthPage />} />
+      <Route path="/builder/auth" element={<BuilderAuthPage />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
       
       {/* Client Routes */}
-      <Route path="/dashboard" element={<DashboardRouter />} />
       <Route 
-        path="/request/new" 
+        path="/client/dashboard" 
+        element={
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
+            <ClientDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/client/request/new" 
         element={
           <ProtectedRoute allowedRoles={['client', 'admin']}>
             <NewRequest />
@@ -142,9 +130,9 @@ function AppRouter() {
         } 
       />
       <Route 
-        path="/projects/:projectId" 
+        path="/client/projects/:projectId" 
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
             <ProjectDetails />
           </ProtectedRoute>
         } 
@@ -152,7 +140,7 @@ function AppRouter() {
       
       {/* Developer Routes */}
       <Route 
-        path="/developer/hub" 
+        path="/developer/dashboard" 
         element={
           <ProtectedRoute allowedRoles={['developer', 'admin']}>
             <DeveloperDashboard />
@@ -162,7 +150,7 @@ function AppRouter() {
       
       {/* Tester Routes */}
       <Route 
-        path="/tester/hub" 
+        path="/tester/dashboard" 
         element={
           <ProtectedRoute allowedRoles={['tester', 'admin']}>
             <TesterDashboard />
@@ -172,7 +160,7 @@ function AppRouter() {
       
       {/* Admin Routes */}
       <Route 
-        path="/admin/work-board" 
+        path="/admin/dashboard" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />
@@ -203,14 +191,15 @@ function AppRouter() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/admin/*" 
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        } 
-      />
+      
+      {/* Legacy redirects */}
+      <Route path="/dashboard" element={<Navigate to="/client/dashboard" replace />} />
+      <Route path="/developer/hub" element={<Navigate to="/developer/dashboard" replace />} />
+      <Route path="/tester/hub" element={<Navigate to="/tester/dashboard" replace />} />
+      <Route path="/admin/work-board" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/request/new" element={<Navigate to="/client/request/new" replace />} />
+      <Route path="/auth/client" element={<Navigate to="/client/auth" replace />} />
+      <Route path="/auth/builder" element={<Navigate to="/builder/auth" replace />} />
       
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" replace />} />
