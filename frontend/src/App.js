@@ -5,7 +5,7 @@ import axios from "axios";
 import { createContext, useContext } from "react";
 
 // Pages
-import EntryPage from "@/pages/EntryPage";
+import LandingPage from "@/pages/LandingPage";
 import ClientAuth from "@/pages/ClientAuth";
 import BuilderAuth from "@/pages/BuilderAuth";
 import ClientDashboard from "@/pages/ClientDashboard";
@@ -122,7 +122,7 @@ function AppRouter() {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<EntryPage />} />
+      <Route path="/" element={<LandingPage />} />
       
       {/* Auth Routes */}
       <Route path="/auth/client" element={<ClientAuth />} />
