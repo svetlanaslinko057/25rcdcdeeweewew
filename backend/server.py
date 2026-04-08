@@ -930,6 +930,37 @@ async def get_my_work_units(user: User = Depends(require_role("developer", "admi
     return units
 
 
+@api_router.get("/developer/work-logs/{unit_id}")
+async def get_work_logs_for_unit(
+    unit_id: str,
+    user: User = Depends(require_role("developer", "admin"))
+):
+    """Developer: Get work logs for a unit"""
+    logs = await db.work_logs.find(
+        {"unit_id": unit_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    for log in logs:
+        if isinstance(log.get("created_at"), str):
+            log["created_at"] = datetime.fromisoformat(log["created_at"])
+    return logs
+
+
+@api_router.post("/developer/work-units/{unit_id}/start")
+async def start_work(
+    unit_id: str,
+    user: User = Depends(require_role("developer", "admin"))
+):
+    """Developer: Start working on a unit"""
+    result = await db.work_units.update_one(
+        {"unit_id": unit_id, "assigned_to": user.user_id, "status": "assigned"},
+        {"$set": {"status": "in_progress"}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=400, detail="Cannot start work on this unit")
+    return {"message": "Work started"}
+
+
 @api_router.post("/work-units/{unit_id}/log", response_model=WorkLog)
 async def create_work_log(
     unit_id: str,
@@ -1009,46 +1040,71 @@ async def pass_validation(
     user: User = Depends(require_role("tester", "admin"))
 ):
     """Tester: Pass validation"""
-    result = await db.validation_tasks.update_one(
+    # Get validation task
+    validation = await db.validation_tasks.find_one({"validation_id": validation_id}, {"_id": 0})
+    if not validation:
+        raise HTTPException(status_code=404, detail="Validation task not found")
+    
+    # Update validation status
+    await db.validation_tasks.update_one(
         {"validation_id": validation_id},
         {"$set": {"status": "passed"}}
     )
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Validation task not found")
+    
+    # Update work unit to completed
+    await db.work_units.update_one(
+        {"unit_id": validation.get("unit_id")},
+        {"$set": {"status": "completed"}}
+    )
+    
     return {"message": "Validation passed"}
 
 
 @api_router.post("/validation/{validation_id}/fail")
 async def fail_validation(
     validation_id: str,
-    issues: List[str],
     user: User = Depends(require_role("tester", "admin"))
 ):
-    """Tester: Fail validation with issues"""
-    result = await db.validation_tasks.update_one(
-        {"validation_id": validation_id},
-        {"$set": {"status": "failed", "issues": issues}}
-    )
-    if result.modified_count == 0:
+    """Tester: Fail validation"""
+    # Get validation task
+    validation = await db.validation_tasks.find_one({"validation_id": validation_id}, {"_id": 0})
+    if not validation:
         raise HTTPException(status_code=404, detail="Validation task not found")
+    
+    # Update validation status
+    await db.validation_tasks.update_one(
+        {"validation_id": validation_id},
+        {"$set": {"status": "failed"}}
+    )
+    
+    # Update work unit back to revision
+    await db.work_units.update_one(
+        {"unit_id": validation.get("unit_id")},
+        {"$set": {"status": "revision"}}
+    )
+    
     return {"message": "Validation failed"}
+
+
+class IssueCreate(BaseModel):
+    title: str
+    description: str = ""
+    severity: str = "medium"
 
 
 @api_router.post("/validation/{validation_id}/issue", response_model=ValidationIssue)
 async def create_validation_issue(
     validation_id: str,
-    title: str,
-    description: str,
-    severity: str,
+    issue: IssueCreate,
     user: User = Depends(require_role("tester", "admin"))
 ):
     """Tester: Create validation issue"""
     issue_doc = {
         "issue_id": f"iss_{uuid.uuid4().hex[:12]}",
         "validation_id": validation_id,
-        "title": title,
-        "description": description,
-        "severity": severity,
+        "title": issue.title,
+        "description": issue.description,
+        "severity": issue.severity,
         "status": "open",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
@@ -1056,6 +1112,39 @@ async def create_validation_issue(
     issue_doc.pop("_id", None)
     issue_doc["created_at"] = datetime.fromisoformat(issue_doc["created_at"])
     return ValidationIssue(**issue_doc)
+
+
+@api_router.get("/tester/validation/{validation_id}/details")
+async def get_validation_details(
+    validation_id: str,
+    user: User = Depends(require_role("tester", "admin"))
+):
+    """Tester: Get validation details including work unit and submission"""
+    validation = await db.validation_tasks.find_one({"validation_id": validation_id}, {"_id": 0})
+    if not validation:
+        raise HTTPException(status_code=404, detail="Validation not found")
+    
+    work_unit = await db.work_units.find_one({"unit_id": validation.get("unit_id")}, {"_id": 0})
+    submission = await db.submissions.find_one({"unit_id": validation.get("unit_id")}, {"_id": 0})
+    
+    return {
+        "validation": validation,
+        "work_unit": work_unit,
+        "submission": submission
+    }
+
+
+@api_router.get("/tester/validation/{validation_id}/issues")
+async def get_validation_issues(
+    validation_id: str,
+    user: User = Depends(require_role("tester", "admin"))
+):
+    """Tester: Get issues for a validation"""
+    issues = await db.validation_issues.find(
+        {"validation_id": validation_id},
+        {"_id": 0}
+    ).to_list(100)
+    return issues
 
 
 # ============ ADMIN ENDPOINTS ============
@@ -1323,16 +1412,18 @@ async def create_review(
     }
     await db.reviews.insert_one(review_doc)
     
+    # Get submission
+    submission = await db.submissions.find_one({"submission_id": review.submission_id}, {"_id": 0})
+    
     # Update submission status
     await db.submissions.update_one(
         {"submission_id": review.submission_id},
         {"$set": {"status": review.result}}
     )
     
-    # If approved, create validation task
-    if review.result == "approved":
-        submission = await db.submissions.find_one({"submission_id": review.submission_id}, {"_id": 0})
-        if submission:
+    if submission:
+        # If approved, create validation task
+        if review.result == "approved":
             validation_doc = {
                 "validation_id": f"val_{uuid.uuid4().hex[:12]}",
                 "unit_id": submission["unit_id"],
@@ -1343,10 +1434,17 @@ async def create_review(
             }
             await db.validation_tasks.insert_one(validation_doc)
             
-            # Update work unit status
+            # Update work unit status to validation
             await db.work_units.update_one(
                 {"unit_id": submission["unit_id"]},
                 {"$set": {"status": "validation"}}
+            )
+        
+        # If revision needed, update work unit back to revision
+        elif review.result == "revision_needed":
+            await db.work_units.update_one(
+                {"unit_id": submission["unit_id"]},
+                {"$set": {"status": "revision"}}
             )
     
     review_doc.pop("_id", None)

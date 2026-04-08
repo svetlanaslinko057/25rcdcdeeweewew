@@ -160,6 +160,7 @@ const DeveloperDashboard = () => {
                   {activeUnits.map((unit) => (
                     <div
                       key={unit.unit_id}
+                      onClick={() => navigate(`/developer/work/${unit.unit_id}`)}
                       className="group border border-white/10 p-5 hover:border-white/20 hover:bg-white/[0.02] transition-all cursor-pointer"
                       data-testid={`work-unit-${unit.unit_id}`}
                     >
@@ -180,11 +181,11 @@ const DeveloperDashboard = () => {
                       </div>
                       
                       <div className="mt-4 flex items-center gap-3">
-                        <button className="px-3 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all">
-                          Log Hours
-                        </button>
-                        <button className="px-3 py-1.5 border border-white/20 text-sm hover:bg-white/5 transition-all">
-                          Submit Work
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); navigate(`/developer/work/${unit.unit_id}`); }}
+                          className="px-3 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+                        >
+                          {unit.status === 'assigned' ? 'Start Work' : 'Continue'}
                         </button>
                       </div>
                     </div>

@@ -18,6 +18,9 @@ import ProjectDetails from "@/pages/ProjectDetails";
 import ScopeBuilder from "@/pages/ScopeBuilder";
 import WorkUnitDetail from "@/pages/WorkUnitDetail";
 import DeliverableBuilder from "@/pages/DeliverableBuilder";
+import DeveloperWorkUnit from "@/pages/DeveloperWorkUnit";
+import TesterValidation from "@/pages/TesterValidation";
+import ClientDeliverable from "@/pages/ClientDeliverable";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -137,6 +140,14 @@ function AppRouter() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/client/deliverable/:deliverableId" 
+        element={
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
+            <ClientDeliverable />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Developer Routes */}
       <Route 
@@ -147,6 +158,14 @@ function AppRouter() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/developer/work/:unitId" 
+        element={
+          <ProtectedRoute allowedRoles={['developer', 'admin']}>
+            <DeveloperWorkUnit />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Tester Routes */}
       <Route 
@@ -154,6 +173,14 @@ function AppRouter() {
         element={
           <ProtectedRoute allowedRoles={['tester', 'admin']}>
             <TesterDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/tester/validation/:validationId" 
+        element={
+          <ProtectedRoute allowedRoles={['tester', 'admin']}>
+            <TesterValidation />
           </ProtectedRoute>
         } 
       />
