@@ -276,8 +276,11 @@ const AdminDashboard = () => {
                         </div>
                         {request.status === 'pending' && (
                           <div className="flex items-center gap-2 mt-4">
-                            <button className="px-3 py-1.5 bg-white text-black text-sm font-medium">
-                              Create Product Definition
+                            <button 
+                              onClick={() => navigate(`/admin/scope-builder/${request.request_id}`)}
+                              className="px-3 py-1.5 bg-white text-black text-sm font-medium"
+                            >
+                              Open Scope Builder
                             </button>
                             <button className="px-3 py-1.5 border border-white/20 text-sm">
                               Reject
@@ -310,9 +313,17 @@ const AdminDashboard = () => {
                               <span className="text-white/40 text-sm capitalize">{project.current_stage}</span>
                             </div>
                           </div>
-                          <button className="px-3 py-1.5 border border-white/20 text-sm">
-                            Manage
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => navigate(`/admin/deliverable/${project.project_id}`)}
+                              className="px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium"
+                            >
+                              Create Deliverable
+                            </button>
+                            <button className="px-3 py-1.5 border border-white/20 text-sm">
+                              Manage
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))

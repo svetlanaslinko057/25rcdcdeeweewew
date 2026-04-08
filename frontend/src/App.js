@@ -14,6 +14,9 @@ import TesterDashboard from "@/pages/TesterDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NewRequest from "@/pages/NewRequest";
 import ProjectDetails from "@/pages/ProjectDetails";
+import ScopeBuilder from "@/pages/ScopeBuilder";
+import WorkUnitDetail from "@/pages/WorkUnitDetail";
+import DeliverableBuilder from "@/pages/DeliverableBuilder";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
@@ -173,6 +176,30 @@ function AppRouter() {
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/scope-builder/:requestId" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <ScopeBuilder />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/work-unit/:unitId" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <WorkUnitDetail />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin/deliverable/:projectId" 
+        element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <DeliverableBuilder />
           </ProtectedRoute>
         } 
       />

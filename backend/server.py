@@ -1179,21 +1179,27 @@ async def assign_validation(
     return {"message": "Validation assigned"}
 
 
+class DeliverableCreate(BaseModel):
+    project_id: str
+    title: str
+    description: str
+    links: List[str] = []
+    work_unit_ids: List[str] = []
+
+
 @api_router.post("/admin/deliverable", response_model=Deliverable)
 async def create_deliverable(
-    project_id: str,
-    title: str,
-    description: str,
-    links: List[str],
+    data: DeliverableCreate,
     admin: User = Depends(require_role("admin"))
 ):
     """Admin: Create deliverable for client"""
     deliverable_doc = {
         "deliverable_id": f"dlv_{uuid.uuid4().hex[:12]}",
-        "project_id": project_id,
-        "title": title,
-        "description": description,
-        "links": links,
+        "project_id": data.project_id,
+        "title": data.title,
+        "description": data.description,
+        "links": data.links,
+        "work_unit_ids": data.work_unit_ids,
         "status": "pending",
         "client_feedback": None,
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -1247,6 +1253,196 @@ async def create_portfolio_case(
     case_doc.pop("_id", None)
     case_doc["created_at"] = datetime.fromisoformat(case_doc["created_at"])
     return PortfolioCase(**case_doc)
+
+
+# ============ ASSIGNMENT ENGINE ============
+
+def score_developer_for_work_unit(work_unit: dict, developer: dict) -> tuple:
+    """Calculate assignment score for a developer"""
+    reasons = []
+    
+    # Skill match (30%)
+    required_skill = work_unit.get("unit_type", "task")
+    dev_skills = developer.get("skills", [])
+    skill_match = 1.0 if required_skill in [s.lower() for s in dev_skills] else 0.5
+    if skill_match == 1.0:
+        reasons.append(f"Strong {required_skill} match")
+    
+    # Level match (20%)
+    level_scores = {"junior": 0.5, "middle": 0.75, "senior": 1.0, "lead": 1.0}
+    level_score = level_scores.get(developer.get("level", "junior"), 0.5)
+    if level_score >= 0.75:
+        reasons.append(f"{developer.get('level', 'junior').capitalize()} level developer")
+    
+    # Rating (20%)
+    rating = developer.get("rating", 5.0)
+    rating_score = min(rating / 5.0, 1.0)
+    if rating >= 4.5:
+        reasons.append("High rating")
+    
+    # Load availability (15%)
+    active_load = developer.get("active_load", 0)
+    max_load = 40  # hours per week
+    load_availability = max(0, 1 - (active_load / max_load))
+    if load_availability > 0.7:
+        reasons.append("Low current load")
+    
+    # Completed tasks (10%)
+    completed = developer.get("completed_tasks", 0)
+    experience_score = min(completed / 50, 1.0)
+    if completed > 20:
+        reasons.append(f"{completed} tasks completed")
+    
+    # Speed (5%)
+    speed_score = 0.7  # Default
+    
+    # Calculate total score
+    total_score = (
+        skill_match * 0.30 +
+        level_score * 0.20 +
+        rating_score * 0.20 +
+        load_availability * 0.15 +
+        experience_score * 0.10 +
+        speed_score * 0.05
+    )
+    
+    return total_score, reasons
+
+
+@api_router.get("/admin/assignment-engine/{work_unit_id}/candidates")
+async def get_assignment_candidates(
+    work_unit_id: str,
+    admin: User = Depends(require_role("admin"))
+):
+    """Get recommended developers for a work unit"""
+    # Get work unit
+    work_unit = await db.work_units.find_one({"unit_id": work_unit_id}, {"_id": 0})
+    if not work_unit:
+        raise HTTPException(status_code=404, detail="Work unit not found")
+    
+    # Get available developers
+    developers = await db.users.find(
+        {"role": "developer"},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Score each developer
+    candidates = []
+    for dev in developers:
+        score, reasons = score_developer_for_work_unit(work_unit, dev)
+        if score > 0.4:  # Minimum threshold
+            candidates.append({
+                "developer": dev,
+                "score": score,
+                "reasons": reasons
+            })
+    
+    # Sort by score descending
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+    
+    return candidates[:5]  # Top 5
+
+
+@api_router.post("/admin/assignment-engine/{work_unit_id}/assign")
+async def assign_work_unit(
+    work_unit_id: str,
+    developer_id: str,
+    admin: User = Depends(require_role("admin"))
+):
+    """Assign a work unit to a specific developer"""
+    # Verify work unit exists
+    work_unit = await db.work_units.find_one({"unit_id": work_unit_id}, {"_id": 0})
+    if not work_unit:
+        raise HTTPException(status_code=404, detail="Work unit not found")
+    
+    # Verify developer exists
+    developer = await db.users.find_one({"user_id": developer_id, "role": "developer"}, {"_id": 0})
+    if not developer:
+        raise HTTPException(status_code=404, detail="Developer not found")
+    
+    # Create assignment
+    assignment_doc = {
+        "assignment_id": f"asgn_{uuid.uuid4().hex[:12]}",
+        "unit_id": work_unit_id,
+        "developer_id": developer_id,
+        "assigned_by": admin.user_id,
+        "status": "active",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.assignments.insert_one(assignment_doc)
+    
+    # Update work unit
+    await db.work_units.update_one(
+        {"unit_id": work_unit_id},
+        {"$set": {"assigned_to": developer_id, "status": "assigned"}}
+    )
+    
+    # Update developer load
+    await db.users.update_one(
+        {"user_id": developer_id},
+        {"$inc": {"active_load": work_unit.get("estimated_hours", 0)}}
+    )
+    
+    return {"message": "Assigned successfully", "assignment_id": assignment_doc["assignment_id"]}
+
+
+@api_router.post("/admin/assignment-engine/{work_unit_id}/assign-best")
+async def assign_best_match(
+    work_unit_id: str,
+    admin: User = Depends(require_role("admin"))
+):
+    """Assign work unit to the best matching developer"""
+    # Get candidates
+    work_unit = await db.work_units.find_one({"unit_id": work_unit_id}, {"_id": 0})
+    if not work_unit:
+        raise HTTPException(status_code=404, detail="Work unit not found")
+    
+    developers = await db.users.find({"role": "developer"}, {"_id": 0}).to_list(100)
+    
+    if not developers:
+        raise HTTPException(status_code=400, detail="No developers available")
+    
+    # Find best match
+    best_dev = None
+    best_score = 0
+    for dev in developers:
+        score, _ = score_developer_for_work_unit(work_unit, dev)
+        if score > best_score:
+            best_score = score
+            best_dev = dev
+    
+    if not best_dev:
+        raise HTTPException(status_code=400, detail="No suitable developer found")
+    
+    # Create assignment
+    assignment_doc = {
+        "assignment_id": f"asgn_{uuid.uuid4().hex[:12]}",
+        "unit_id": work_unit_id,
+        "developer_id": best_dev["user_id"],
+        "assigned_by": admin.user_id,
+        "status": "active",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.assignments.insert_one(assignment_doc)
+    
+    # Update work unit
+    await db.work_units.update_one(
+        {"unit_id": work_unit_id},
+        {"$set": {"assigned_to": best_dev["user_id"], "status": "assigned"}}
+    )
+    
+    # Update developer load
+    await db.users.update_one(
+        {"user_id": best_dev["user_id"]},
+        {"$inc": {"active_load": work_unit.get("estimated_hours", 0)}}
+    )
+    
+    return {
+        "message": "Assigned to best match",
+        "assignment_id": assignment_doc["assignment_id"],
+        "developer_id": best_dev["user_id"],
+        "score": best_score
+    }
 
 
 # Include the router in the main app
