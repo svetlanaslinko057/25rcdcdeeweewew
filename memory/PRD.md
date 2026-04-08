@@ -12,116 +12,136 @@ Development OS is an operating system for managed digital product development. T
 
 ## Core Architecture
 
-### Entry Flow
-Two paths from Landing Page:
-1. **"I want to build a product"** → Client Auth → Client Dashboard
-2. **"I want to work on projects"** → Builder Auth (skill selection) → Developer/Tester Dashboard
+### Web-first Platform Entry (IMPLEMENTED)
+
+**Three Independent Auth Contours:**
+
+1. **Client Flow**
+   - `/client/auth` → Sign In / Register / Demo
+   - `/client/dashboard` → Projects, Requests, Deliverables
+   - `/client/request/new` → Create new request
+   - `/client/projects/:id` → Project details
+
+2. **Builder Flow**  
+   - `/builder/auth` → Sign In / Register (role selection) / Demo
+   - `/developer/dashboard` → Assignments, Work Units, Performance
+   - `/tester/dashboard` → Validation Tasks, Issues, History
+
+3. **Admin Flow**
+   - `/admin/login` → Admin auth
+   - `/admin/dashboard` → Full production control center
+   - `/admin/scope-builder/:id` → Scope Builder wizard
+   - `/admin/work-unit/:id` → Work Unit with Assignment Panel
+   - `/admin/deliverable/:id` → Deliverable Builder
 
 ### User Roles
 1. **Client** - Creates requests, views projects, approves deliverables
 2. **Developer** - Receives assignments, logs work, submits results
 3. **Tester** - Validates submissions, reports issues
-4. **Admin** - Manages entire production pipeline via Scope Builder & Assignment Engine
+4. **Admin** - Manages entire production pipeline
 
-## Production Pipeline (IMPLEMENTED)
+## Production Pipeline
 
 ```
-Request (Client)
+Client Request (via /client/request/new)
   ↓
-ProductDefinition (Admin via Scope Builder)
+Admin: Product Definition (via Scope Builder)
   ↓
-Scope + ScopeItems (Admin via Scope Builder)
+Admin: Scope + ScopeItems (via Scope Builder)
   ↓
-WorkUnits (Admin via Scope Builder)
+Admin: WorkUnits (via Scope Builder)
   ↓
-Assignment Engine → Developer
+Assignment Engine → Developer (scored matching)
   ↓
-WorkLog + Submission (Developer)
+Developer: WorkLog + Submission
   ↓
-Review (Admin)
+Admin: Review
   ↓
-Validation → Tester
+Tester: Validation
   ↓
-Deliverable → Client
+Admin: Deliverable → Client
   ↓
-Approval / Support
+Client: Approval / Support
 ```
 
 ## What's Been Implemented
 
-### Phase 1 - Core Platform (April 8, 2026)
-- [x] Landing Page with original design + Entry Flow
-- [x] Quick Auth (email-based, session cookies)
-- [x] Client/Developer/Tester/Admin Dashboards
-- [x] New Request Page
+### Phase 1 - Core Platform
+- [x] Landing Page with original design
+- [x] Entry Flow (two CTA buttons)
 
-### Phase 2 - Production Machine (April 8, 2026)
-- [x] **SCOPE BUILDER** - 4-step flow:
-  - Step 1: Product Overview (type, goal, audience, timeline)
-  - Step 2: Scope Items (features with auto-generation hints)
-  - Step 3: Work Units (breakdown with hour estimates)
-  - Step 4: Review & Launch (creates ProductDefinition, Scope, ScopeItems, WorkUnits, Project)
+### Phase 2 - Auth Architecture (Current)
+- [x] **Client Auth Page** - Sign In / Register / Demo Access
+- [x] **Builder Auth Page** - Sign In / Multi-step Register (role + skills) / Demo
+- [x] **Admin Login Page** - Auth / Demo Access
+- [x] **Full Auth Backend:**
+  - `POST /api/auth/register` - Registration with role
+  - `POST /api/auth/login` - Email/password login
+  - `POST /api/auth/demo` - Quick demo access (creates temp user)
+  - `GET /api/auth/me` - Session check
+  - `POST /api/auth/logout` - Logout
 
-- [x] **ASSIGNMENT ENGINE** - Developer scoring system:
-  - Skill match (30%)
-  - Level score (20%)
-  - Rating (20%)
-  - Load availability (15%)
-  - Experience (10%)
-  - Speed (5%)
-  - Top 5 candidates with reasons
-  - "Assign Best Match" auto-assignment
+### Phase 3 - Production Machine
+- [x] **Scope Builder** (4-step wizard)
+- [x] **Assignment Engine** (scoring system)
+- [x] **Deliverable Builder**
 
-- [x] **DELIVERABLE BUILDER** - Results delivery:
-  - Link completed work units
-  - Add resource links
-  - Send to client for approval
+### Phase 4 - Dashboards
+- [x] **Client Dashboard** - Projects, Requests, Stats
+- [x] **Developer Dashboard** - Assignments, Work Units, Performance
+- [x] **Tester Dashboard** - Validation Tasks, History
+- [x] **Admin Dashboard** - Work Board, Requests, Review Queue, Users
 
-### Backend Endpoints (NEW)
-**Assignment Engine:**
-- `GET /api/admin/assignment-engine/{work_unit_id}/candidates` - Get ranked candidates
-- `POST /api/admin/assignment-engine/{work_unit_id}/assign` - Assign to specific dev
-- `POST /api/admin/assignment-engine/{work_unit_id}/assign-best` - Auto-assign best
+## URL Structure
 
-**Deliverables:**
-- `POST /api/admin/deliverable` - Create deliverable (JSON body)
+```
+/                     → Landing
+/client/auth          → Client Sign In / Register
+/client/dashboard     → Client workspace
+/client/request/new   → Create request
+/client/projects/:id  → Project details
 
-### Frontend Routes (NEW)
-- `/admin/scope-builder/:requestId` - Scope Builder wizard
-- `/admin/work-unit/:unitId` - Work Unit detail with Assignment Panel
-- `/admin/deliverable/:projectId` - Deliverable creation
+/builder/auth         → Builder Sign In / Register
+/developer/dashboard  → Developer workspace
+/tester/dashboard     → Tester workspace
+
+/admin/login          → Admin auth
+/admin/dashboard      → Admin control center
+/admin/scope-builder/:id
+/admin/work-unit/:id
+/admin/deliverable/:id
+```
 
 ## Prioritized Backlog
 
 ### P0 - Critical (Next Sprint)
-- [ ] Developer work log UI
-- [ ] Developer submission flow
-- [ ] Admin review flow with feedback
+- [ ] Developer work submission flow
+- [ ] Admin review workflow UI
 - [ ] Tester validation flow
+- [ ] Real-time notifications
 
 ### P1 - High Priority
+- [ ] Password reset flow
 - [ ] Email notifications
-- [ ] Real-time updates (WebSocket)
-- [ ] Client messaging/support system
 - [ ] File attachments
+- [ ] Client messaging
 
 ### P2 - Medium Priority
 - [ ] Time tracking reports
-- [ ] Project analytics dashboard
+- [ ] Project analytics
 - [ ] Developer performance metrics
 - [ ] Invoice generation
 
 ### P3 - Future
 - [ ] AI-powered scope estimation
-- [ ] Mobile companion app
-- [ ] Telegram Mini App integration
+- [ ] Mobile app
+- [ ] Telegram Mini App
 
 ## Technical Notes
-- Authentication: Email-based quick auth (session cookie)
-- Session: httpOnly cookies, 7-day expiry
+- Auth: Email/password with SHA-256 hashing (upgrade to bcrypt for production)
+- Sessions: httpOnly cookies, 7-day expiry (1-day for demo)
 - Database: MongoDB with custom IDs
-- Assignment scoring: Weighted formula for developer matching
-- Auto-generation: Work units auto-suggested based on scope item type
+- Assignment: Weighted scoring formula
 
 ## URLs
 - Frontend: https://auth-platform-20.preview.emergentagent.com
