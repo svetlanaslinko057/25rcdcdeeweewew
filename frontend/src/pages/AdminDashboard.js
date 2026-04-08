@@ -6,52 +6,53 @@ import {
   LayoutDashboard,
   Users,
   FolderKanban,
-  FileText,
-  Code,
-  Shield,
-  Settings,
+  ClipboardList,
+  FileCheck,
+  TestTube,
+  Package,
   LogOut,
-  Plus,
+  Bell,
   ChevronRight,
-  ChevronDown,
-  Search,
-  BarChart3,
-  Layers,
-  CheckCircle,
+  CheckCircle2,
   Clock,
-  AlertCircle,
-  Eye,
-  UserCog,
-  GitBranch,
-  Package
+  AlertTriangle,
+  Plus,
+  Settings
 } from 'lucide-react';
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [users, setUsers] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [workUnits, setWorkUnits] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
+  const [activeTab, setActiveTab] = useState('work-board');
+  const [data, setData] = useState({
+    users: [],
+    requests: [],
+    projects: [],
+    workUnits: [],
+    submissions: [],
+    supportTickets: []
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [usersRes, projectsRes, requestsRes, unitsRes, subsRes] = await Promise.all([
+        const [usersRes, requestsRes, projectsRes, workUnitsRes, submissionsRes, ticketsRes] = await Promise.all([
           axios.get(`${API}/admin/users`, { withCredentials: true }),
-          axios.get(`${API}/admin/projects`, { withCredentials: true }),
           axios.get(`${API}/admin/requests`, { withCredentials: true }),
+          axios.get(`${API}/admin/projects`, { withCredentials: true }),
           axios.get(`${API}/admin/work-units`, { withCredentials: true }),
-          axios.get(`${API}/admin/submissions`, { withCredentials: true })
+          axios.get(`${API}/admin/submissions`, { withCredentials: true }),
+          axios.get(`${API}/admin/support-tickets`, { withCredentials: true })
         ]);
-        setUsers(usersRes.data);
-        setProjects(projectsRes.data);
-        setRequests(requestsRes.data);
-        setWorkUnits(unitsRes.data);
-        setSubmissions(subsRes.data);
+        setData({
+          users: usersRes.data,
+          requests: requestsRes.data,
+          projects: projectsRes.data,
+          workUnits: workUnitsRes.data,
+          submissions: submissionsRes.data,
+          supportTickets: ticketsRes.data
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -66,686 +67,348 @@ const AdminDashboard = () => {
     navigate('/');
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'active': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      case 'pending': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
-      case 'completed': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
-      case 'approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      case 'rejected': return 'text-red-400 bg-red-400/10 border-red-400/30';
-      default: return 'text-white/60 bg-white/10 border-white/20';
-    }
-  };
-
-  const getRoleColor = (role) => {
-    switch (role) {
-      case 'admin': return 'text-purple-400 bg-purple-400/10 border-purple-400/30';
-      case 'developer': return 'text-blue-400 bg-blue-400/10 border-blue-400/30';
-      case 'tester': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      default: return 'text-white/60 bg-white/10 border-white/20';
-    }
-  };
-
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'requests', label: 'Requests', icon: FileText },
+    { id: 'work-board', label: 'Work Board', icon: LayoutDashboard },
+    { id: 'requests', label: 'Requests', icon: ClipboardList },
     { id: 'projects', label: 'Projects', icon: FolderKanban },
-    { id: 'work-board', label: 'Work Board', icon: GitBranch },
-    { id: 'review-queue', label: 'Review Queue', icon: Eye },
+    { id: 'review-queue', label: 'Review Queue', icon: FileCheck },
+    { id: 'validation', label: 'Validation', icon: TestTube },
     { id: 'users', label: 'Users', icon: Users },
-    { id: 'developers', label: 'Developers', icon: Code },
-    { id: 'testers', label: 'Testers', icon: Shield }
   ];
 
-  const developers = users.filter(u => u.role === 'developer');
-  const testers = users.filter(u => u.role === 'tester');
-  const clients = users.filter(u => u.role === 'client');
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+      active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      approved: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+      completed: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      rejected: 'bg-red-500/10 text-red-400 border-red-500/20',
+      in_progress: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      submitted: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    };
+    return styles[status] || 'bg-white/5 text-white/50 border-white/10';
+  };
+
+  const pendingRequests = data.requests.filter(r => r.status === 'pending');
+  const pendingSubmissions = data.submissions.filter(s => s.status === 'pending');
+  const activeProjects = data.projects.filter(p => p.status === 'active');
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex" data-testid="admin-dashboard">
       {/* Sidebar */}
       <aside className="w-64 border-r border-white/10 flex flex-col">
-        <div className="p-6 border-b border-white/10">
+        <div className="p-4 border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500 flex items-center justify-center">
-              <Layers className="w-5 h-5 text-white" strokeWidth={1.5} />
+            <div className="w-8 h-8 bg-white flex items-center justify-center">
+              <span className="text-black font-bold text-sm">D</span>
             </div>
-            <div>
-              <span className="text-lg font-semibold tracking-tight block" style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}>
-                Admin Panel
-              </span>
-              <span className="text-xs text-white/40">Control Center</span>
-            </div>
+            <span className="font-bold tracking-tight">Dev OS Admin</span>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-3">
           <div className="space-y-1">
             {navItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-all ${
                   activeTab === item.id 
                     ? 'bg-white text-black' 
                     : 'text-white/60 hover:bg-white/5 hover:text-white'
                 }`}
-                data-testid={`admin-nav-${item.id}`}
+                data-testid={`nav-${item.id}`}
               >
                 <item.icon className="w-4 h-4" strokeWidth={1.5} />
                 {item.label}
+                {item.id === 'requests' && pendingRequests.length > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs px-1.5 py-0.5">
+                    {pendingRequests.length}
+                  </span>
+                )}
+                {item.id === 'review-queue' && pendingSubmissions.length > 0 && (
+                  <span className="ml-auto bg-amber-500 text-black text-xs px-1.5 py-0.5">
+                    {pendingSubmissions.length}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 px-4 py-3">
-            {user?.picture ? (
-              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full" />
-            ) : (
-              <div className="w-8 h-8 bg-white/10 flex items-center justify-center">
-                <span className="text-sm font-medium">{user?.name?.[0]}</span>
-              </div>
-            )}
+        <div className="p-3 border-t border-white/10">
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-sm">
+              {user?.name?.[0]}
+            </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{user?.name}</div>
-              <div className="text-xs text-purple-400">{user?.role}</div>
+              <div className="text-xs text-white/40">Admin</div>
             </div>
+            <button onClick={handleLogout} className="text-white/40 hover:text-white" data-testid="logout-btn">
+              <LogOut className="w-4 h-4" strokeWidth={1.5} />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-white/60 hover:bg-white/5 hover:text-white transition-colors mt-2"
-            data-testid="admin-logout-btn"
-          >
-            <LogOut className="w-4 h-4" strokeWidth={1.5} />
-            Sign Out
-          </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        {/* Header */}
-        <header className="border-b border-white/10 px-8 py-6">
+        <header className="border-b border-white/10 px-6 py-4 sticky top-0 bg-[#0A0A0A]/95 backdrop-blur-sm z-10">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 
-                className="text-2xl font-bold tracking-tight"
-                style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}
-              >
-                {activeTab === 'overview' && 'Admin Dashboard'}
-                {activeTab === 'requests' && 'Client Requests'}
-                {activeTab === 'projects' && 'All Projects'}
-                {activeTab === 'work-board' && 'Work Board'}
-                {activeTab === 'review-queue' && 'Review Queue'}
-                {activeTab === 'users' && 'User Management'}
-                {activeTab === 'developers' && 'Developer Pool'}
-                {activeTab === 'testers' && 'Tester Pool'}
-              </h1>
-              <p className="text-sm text-white/60 mt-1">
-                Platform Control Center
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="p-2 text-white/60 hover:text-white transition-colors" data-testid="admin-settings-btn">
-                <Settings className="w-5 h-5" strokeWidth={1.5} />
-              </button>
-            </div>
+            <h1 className="text-xl font-bold">
+              {navItems.find(n => n.id === activeTab)?.label}
+            </h1>
+            <button className="w-9 h-9 flex items-center justify-center text-white/50 hover:text-white">
+              <Bell className="w-5 h-5" strokeWidth={1.5} />
+            </button>
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="w-8 h-8 border-2 border-white/20 border-t-purple-500 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
             </div>
           ) : (
             <>
-              {/* Overview Tab */}
-              {activeTab === 'overview' && (
-                <div className="space-y-8">
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div className="border border-white/10 p-6" data-testid="admin-stat-projects">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-mono uppercase tracking-wider text-white/40">Active Projects</span>
-                        <FolderKanban className="w-4 h-4 text-[#FF3B30]" strokeWidth={1.5} />
-                      </div>
-                      <div className="text-3xl font-bold">{projects.filter(p => p.status === 'active').length}</div>
+              {/* Work Board */}
+              {activeTab === 'work-board' && (
+                <div className="space-y-6">
+                  {/* Overview Stats */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Pending Requests</div>
+                      <div className="text-2xl font-bold">{pendingRequests.length}</div>
                     </div>
-                    <div className="border border-white/10 p-6" data-testid="admin-stat-requests">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-mono uppercase tracking-wider text-white/40">Pending Requests</span>
-                        <FileText className="w-4 h-4 text-yellow-400" strokeWidth={1.5} />
-                      </div>
-                      <div className="text-3xl font-bold">{requests.filter(r => r.status === 'pending').length}</div>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Active Projects</div>
+                      <div className="text-2xl font-bold">{activeProjects.length}</div>
                     </div>
-                    <div className="border border-white/10 p-6" data-testid="admin-stat-developers">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-mono uppercase tracking-wider text-white/40">Developers</span>
-                        <Code className="w-4 h-4 text-blue-400" strokeWidth={1.5} />
-                      </div>
-                      <div className="text-3xl font-bold">{developers.length}</div>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Work Units</div>
+                      <div className="text-2xl font-bold">{data.workUnits.length}</div>
                     </div>
-                    <div className="border border-white/10 p-6" data-testid="admin-stat-testers">
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-xs font-mono uppercase tracking-wider text-white/40">Testers</span>
-                        <Shield className="w-4 h-4 text-emerald-400" strokeWidth={1.5} />
-                      </div>
-                      <div className="text-3xl font-bold">{testers.length}</div>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Pending Reviews</div>
+                      <div className="text-2xl font-bold">{pendingSubmissions.length}</div>
                     </div>
                   </div>
 
-                  {/* Production Pipeline */}
-                  <div>
-                    <h2 className="text-lg font-semibold mb-6" style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}>
-                      Production Pipeline
-                    </h2>
-                    <div className="grid grid-cols-6 gap-px bg-white/10">
-                      {['Requests', 'Scoping', 'Development', 'Review', 'Validation', 'Delivery'].map((stage, i) => (
-                        <div key={stage} className="bg-[#0A0A0A] p-6 text-center">
-                          <div className="text-3xl font-bold mb-2">
-                            {i === 0 && requests.filter(r => r.status === 'pending').length}
-                            {i === 1 && projects.filter(p => p.current_stage === 'scope').length}
-                            {i === 2 && workUnits.filter(u => u.status === 'in_progress').length}
-                            {i === 3 && submissions.length}
-                            {i === 4 && workUnits.filter(u => u.status === 'validation').length}
-                            {i === 5 && projects.filter(p => p.current_stage === 'delivery').length}
-                          </div>
-                          <div className="text-xs text-white/60">{stage}</div>
+                  {/* Quick Actions */}
+                  <div className="grid grid-cols-3 gap-4">
+                    {pendingRequests.length > 0 && (
+                      <div className="border border-amber-500/30 bg-amber-500/5 p-4">
+                        <div className="flex items-center gap-2 text-amber-400 mb-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="text-sm font-medium">Action Required</span>
                         </div>
-                      ))}
-                    </div>
+                        <p className="text-sm text-white/60">{pendingRequests.length} requests need processing</p>
+                        <button 
+                          onClick={() => setActiveTab('requests')}
+                          className="mt-3 text-sm text-amber-400 flex items-center gap-1"
+                        >
+                          View Requests <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                    {pendingSubmissions.length > 0 && (
+                      <div className="border border-purple-500/30 bg-purple-500/5 p-4">
+                        <div className="flex items-center gap-2 text-purple-400 mb-2">
+                          <FileCheck className="w-4 h-4" />
+                          <span className="text-sm font-medium">Reviews Pending</span>
+                        </div>
+                        <p className="text-sm text-white/60">{pendingSubmissions.length} submissions to review</p>
+                        <button 
+                          onClick={() => setActiveTab('review-queue')}
+                          className="mt-3 text-sm text-purple-400 flex items-center gap-1"
+                        >
+                          View Queue <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Recent Activity */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Recent Requests */}
-                    <div>
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold" style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}>
-                          Recent Requests
-                        </h2>
-                        <button 
-                          onClick={() => setActiveTab('requests')}
-                          className="text-sm text-white/60 hover:text-white transition-colors flex items-center gap-2"
-                        >
-                          View all <ChevronRight className="w-4 h-4" />
-                        </button>
+                  <div>
+                    <h2 className="text-lg font-semibold mb-4">Active Projects</h2>
+                    {activeProjects.length === 0 ? (
+                      <div className="border border-white/10 p-8 text-center text-white/40">
+                        No active projects
                       </div>
-                      {requests.length === 0 ? (
-                        <div className="border border-white/10 p-8 text-center">
-                          <p className="text-sm text-white/60">No requests yet</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {requests.slice(0, 5).map((req, i) => (
-                            <div 
-                              key={req.request_id}
-                              className="border border-white/10 p-4 hover:border-white/20 transition-colors cursor-pointer"
-                              data-testid={`admin-request-${i}`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-sm">{req.title}</div>
-                                  <div className="text-xs text-white/60 mt-1">{req.business_idea?.slice(0, 60)}...</div>
-                                </div>
-                                <span className={`inline-flex items-center px-2 py-1 text-xs border ${getStatusColor(req.status)}`}>
-                                  {req.status}
-                                </span>
-                              </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {activeProjects.slice(0, 5).map((project) => (
+                          <div key={project.project_id} className="border border-white/10 p-4 flex items-center justify-between">
+                            <div>
+                              <h3 className="font-medium">{project.name}</h3>
+                              <span className="text-white/40 text-sm capitalize">{project.current_stage}</span>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Review Queue */}
-                    <div>
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-semibold" style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}>
-                          Pending Reviews
-                        </h2>
-                        <button 
-                          onClick={() => setActiveTab('review-queue')}
-                          className="text-sm text-white/60 hover:text-white transition-colors flex items-center gap-2"
-                        >
-                          View all <ChevronRight className="w-4 h-4" />
-                        </button>
+                            <span className={`px-2 py-0.5 text-xs border ${getStatusBadge(project.status)}`}>
+                              {project.status}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      {submissions.length === 0 ? (
-                        <div className="border border-white/10 p-8 text-center">
-                          <p className="text-sm text-white/60">No pending reviews</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {submissions.slice(0, 5).map((sub, i) => (
-                            <div 
-                              key={sub.submission_id}
-                              className="border border-white/10 p-4 hover:border-white/20 transition-colors cursor-pointer"
-                              data-testid={`admin-submission-${i}`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <div className="font-medium text-sm">{sub.summary?.slice(0, 50)}...</div>
-                                  <div className="text-xs text-white/60 mt-1">Unit: {sub.unit_id}</div>
-                                </div>
-                                <button className="text-[#FF3B30] hover:text-white transition-colors text-sm">
-                                  Review
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Requests Tab */}
+              {/* Requests */}
               {activeTab === 'requests' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                      <input 
-                        type="text"
-                        placeholder="Search requests..."
-                        className="bg-[#1A1A1A] border border-white/10 pl-10 pr-4 py-2 text-sm w-64 focus:outline-none focus:border-[#FF3B30]"
-                      />
-                    </div>
-                  </div>
-
-                  {requests.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <FileText className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No requests</h3>
-                      <p className="text-sm text-white/60">Client requests will appear here</p>
+                <div className="space-y-4">
+                  {data.requests.length === 0 ? (
+                    <div className="border border-white/10 p-12 text-center text-white/40">
+                      No requests yet
                     </div>
                   ) : (
-                    <div className="border border-white/10">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Title</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Client</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Created</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {requests.map((req, i) => (
-                            <tr 
-                              key={req.request_id}
-                              className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                              data-testid={`request-row-${i}`}
-                            >
-                              <td className="px-6 py-4">
-                                <div>
-                                  <div className="text-sm font-medium">{req.title}</div>
-                                  <div className="text-xs text-white/60 mt-1 line-clamp-1">{req.business_idea}</div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-white/60">{req.user_id}</td>
-                              <td className="px-6 py-4">
-                                <span className={`inline-flex items-center px-2 py-1 text-xs border ${getStatusColor(req.status)}`}>
-                                  {req.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-white/60">
-                                {new Date(req.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  {req.status === 'pending' && (
-                                    <>
-                                      <button className="text-emerald-400 hover:text-white transition-colors text-sm">
-                                        Approve
-                                      </button>
-                                      <button className="text-red-400 hover:text-white transition-colors text-sm">
-                                        Reject
-                                      </button>
-                                    </>
-                                  )}
-                                  <button className="text-white/60 hover:text-white transition-colors text-sm">
-                                    View
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                    data.requests.map((request) => (
+                      <div key={request.request_id} className="border border-white/10 p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-medium">{request.title}</h3>
+                            <p className="text-white/40 text-sm mt-1">{request.business_idea}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 text-xs border ${getStatusBadge(request.status)}`}>
+                            {request.status}
+                          </span>
+                        </div>
+                        {request.status === 'pending' && (
+                          <div className="flex items-center gap-2 mt-4">
+                            <button className="px-3 py-1.5 bg-white text-black text-sm font-medium">
+                              Create Product Definition
+                            </button>
+                            <button className="px-3 py-1.5 border border-white/20 text-sm">
+                              Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
               )}
 
-              {/* Projects Tab */}
+              {/* Projects */}
               {activeTab === 'projects' && (
-                <div className="space-y-6">
-                  {projects.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <FolderKanban className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No projects</h3>
-                      <p className="text-sm text-white/60">Create projects from approved requests</p>
+                <div className="space-y-4">
+                  {data.projects.length === 0 ? (
+                    <div className="border border-white/10 p-12 text-center text-white/40">
+                      No projects yet
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {projects.map((project, i) => (
-                        <div 
-                          key={project.project_id}
-                          className="border border-white/10 p-6 hover:border-white/20 transition-colors cursor-pointer"
-                          data-testid={`admin-project-card-${i}`}
-                        >
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <h3 className="font-semibold">{project.name}</h3>
-                              <span className={`inline-flex items-center px-2 py-1 text-xs mt-2 border ${getStatusColor(project.status)}`}>
+                    data.projects.map((project) => (
+                      <div key={project.project_id} className="border border-white/10 p-5">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="font-medium">{project.name}</h3>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className={`px-2 py-0.5 text-xs border ${getStatusBadge(project.status)}`}>
                                 {project.status}
                               </span>
+                              <span className="text-white/40 text-sm capitalize">{project.current_stage}</span>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Stage</span>
-                              <span className="capitalize">{project.current_stage}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Progress</span>
-                              <span>{project.progress}%</span>
-                            </div>
-                          </div>
+                          <button className="px-3 py-1.5 border border-white/20 text-sm">
+                            Manage
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
 
-              {/* Work Board Tab */}
-              {activeTab === 'work-board' && (
-                <div className="space-y-6">
-                  {workUnits.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <GitBranch className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No work units</h3>
-                      <p className="text-sm text-white/60">Create work units from project scopes</p>
-                    </div>
-                  ) : (
-                    <div className="border border-white/10">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-white/10">
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Task</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Type</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Assigned</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Hours</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {workUnits.map((unit, i) => (
-                            <tr 
-                              key={unit.unit_id}
-                              className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                              data-testid={`work-unit-row-${i}`}
-                            >
-                              <td className="px-6 py-4">
-                                <div className="text-sm font-medium">{unit.title}</div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className="text-xs px-2 py-1 bg-white/5 capitalize">{unit.unit_type}</span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-white/60">
-                                {unit.assigned_to || 'Unassigned'}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={`inline-flex items-center px-2 py-1 text-xs border ${getStatusColor(unit.status)}`}>
-                                  {unit.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-white/60">
-                                {unit.actual_hours}/{unit.estimated_hours}h
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Review Queue Tab */}
+              {/* Review Queue */}
               {activeTab === 'review-queue' && (
-                <div className="space-y-6">
-                  {submissions.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <Eye className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No pending reviews</h3>
-                      <p className="text-sm text-white/60">Submissions awaiting review will appear here</p>
+                <div className="space-y-4">
+                  {pendingSubmissions.length === 0 ? (
+                    <div className="border border-white/10 p-12 text-center text-white/40">
+                      No pending submissions
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {submissions.map((sub, i) => (
-                        <div 
-                          key={sub.submission_id}
-                          className="border border-white/10 p-6"
-                          data-testid={`review-item-${i}`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-semibold">{sub.summary}</h3>
-                              <p className="text-sm text-white/60 mt-1">Unit: {sub.unit_id}</p>
-                              {sub.links?.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  {sub.links.map((link, j) => (
-                                    <a 
-                                      key={j}
-                                      href={link}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs px-2 py-1 bg-white/5 text-[#FF3B30] hover:bg-white/10"
-                                    >
-                                      Link {j + 1}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button className="px-4 py-2 bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">
-                                Approve
-                              </button>
-                              <button className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors">
-                                Request Revision
-                              </button>
-                            </div>
+                    pendingSubmissions.map((submission) => (
+                      <div key={submission.submission_id} className="border border-white/10 p-5">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="font-medium">Submission #{submission.submission_id.slice(-6)}</h3>
+                            <p className="text-white/40 text-sm mt-1">{submission.summary}</p>
                           </div>
+                          <span className={`px-2 py-0.5 text-xs border ${getStatusBadge(submission.status)}`}>
+                            {submission.status}
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex items-center gap-2 mt-4">
+                          <button className="px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium">
+                            Approve
+                          </button>
+                          <button className="px-3 py-1.5 bg-amber-500 text-black text-sm font-medium">
+                            Request Revision
+                          </button>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
 
-              {/* Users Tab */}
+              {/* Validation */}
+              {activeTab === 'validation' && (
+                <div className="border border-white/10 p-12 text-center text-white/40">
+                  <TestTube className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p>No validation tasks pending</p>
+                </div>
+              )}
+
+              {/* Users */}
               {activeTab === 'users' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                      <input 
-                        type="text"
-                        placeholder="Search users..."
-                        className="bg-[#1A1A1A] border border-white/10 pl-10 pr-4 py-2 text-sm w-64 focus:outline-none focus:border-[#FF3B30]"
-                      />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-4 gap-4 mb-6">
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Total Users</div>
+                      <div className="text-2xl font-bold">{data.users.length}</div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-white/60">{users.length} total users</span>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Clients</div>
+                      <div className="text-2xl font-bold">{data.users.filter(u => u.role === 'client').length}</div>
+                    </div>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Developers</div>
+                      <div className="text-2xl font-bold">{data.users.filter(u => u.role === 'developer').length}</div>
+                    </div>
+                    <div className="border border-white/10 p-4">
+                      <div className="text-white/50 text-sm mb-1">Testers</div>
+                      <div className="text-2xl font-bold">{data.users.filter(u => u.role === 'tester').length}</div>
                     </div>
                   </div>
 
-                  <div className="border border-white/10">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-white/10">
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">User</th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Email</th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Role</th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Joined</th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/40 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((u, i) => (
-                          <tr 
-                            key={u.user_id}
-                            className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                            data-testid={`user-row-${i}`}
-                          >
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-3">
-                                {u.picture ? (
-                                  <img src={u.picture} alt={u.name} className="w-8 h-8 rounded-full" />
-                                ) : (
-                                  <div className="w-8 h-8 bg-white/10 flex items-center justify-center">
-                                    <span className="text-sm">{u.name?.[0]}</span>
-                                  </div>
-                                )}
-                                <span className="text-sm font-medium">{u.name}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-white/60">{u.email}</td>
-                            <td className="px-6 py-4">
-                              <span className={`inline-flex items-center px-2 py-1 text-xs border capitalize ${getRoleColor(u.role)}`}>
-                                {u.role}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-white/60">
-                              {new Date(u.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4">
-                              <button className="text-white/60 hover:text-white transition-colors text-sm">
-                                <UserCog className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* Developers Tab */}
-              {activeTab === 'developers' && (
-                <div className="space-y-6">
-                  {developers.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <Code className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No developers</h3>
-                      <p className="text-sm text-white/60">Assign developer role to users to see them here</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {developers.map((dev, i) => (
-                        <div 
-                          key={dev.user_id}
-                          className="border border-white/10 p-6"
-                          data-testid={`developer-card-${i}`}
-                        >
-                          <div className="flex items-center gap-4 mb-4">
-                            {dev.picture ? (
-                              <img src={dev.picture} alt={dev.name} className="w-12 h-12 rounded-full" />
-                            ) : (
-                              <div className="w-12 h-12 bg-white/10 flex items-center justify-center">
-                                <span className="text-lg">{dev.name?.[0]}</span>
-                              </div>
-                            )}
-                            <div>
-                              <h3 className="font-semibold">{dev.name}</h3>
-                              <span className="text-xs text-white/60 capitalize">{dev.level}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Rating</span>
-                              <span>{dev.rating}/5</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Completed</span>
-                              <span>{dev.completed_tasks} tasks</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Active Load</span>
-                              <span>{dev.active_load} tasks</span>
-                            </div>
-                          </div>
-                          {dev.skills?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-4">
-                              {dev.skills.slice(0, 3).map((skill, j) => (
-                                <span key={j} className="text-xs px-2 py-1 bg-white/5 text-white/60">
-                                  {skill}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                  {data.users.map((u) => (
+                    <div key={u.user_id} className="border border-white/10 p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                          {u.name?.[0] || u.email?.[0]}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Testers Tab */}
-              {activeTab === 'testers' && (
-                <div className="space-y-6">
-                  {testers.length === 0 ? (
-                    <div className="border border-white/10 p-12 text-center">
-                      <Shield className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No testers</h3>
-                      <p className="text-sm text-white/60">Assign tester role to users to see them here</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {testers.map((tester, i) => (
-                        <div 
-                          key={tester.user_id}
-                          className="border border-white/10 p-6"
-                          data-testid={`tester-card-${i}`}
-                        >
-                          <div className="flex items-center gap-4 mb-4">
-                            {tester.picture ? (
-                              <img src={tester.picture} alt={tester.name} className="w-12 h-12 rounded-full" />
-                            ) : (
-                              <div className="w-12 h-12 bg-white/10 flex items-center justify-center">
-                                <span className="text-lg">{tester.name?.[0]}</span>
-                              </div>
-                            )}
-                            <div>
-                              <h3 className="font-semibold">{tester.name}</h3>
-                              <span className="text-xs text-emerald-400">QA Tester</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Rating</span>
-                              <span>{tester.rating}/5</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-white/60">Completed</span>
-                              <span>{tester.completed_tasks} validations</span>
-                            </div>
-                          </div>
+                        <div>
+                          <div className="font-medium">{u.name || u.email}</div>
+                          <div className="text-white/40 text-sm">{u.email}</div>
                         </div>
-                      ))}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 text-xs border capitalize ${
+                          u.role === 'admin' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                          u.role === 'developer' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                          u.role === 'tester' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                          'bg-white/5 text-white/50 border-white/10'
+                        }`}>
+                          {u.role}
+                        </span>
+                        <button className="text-white/40 hover:text-white">
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               )}
             </>

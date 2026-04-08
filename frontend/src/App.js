@@ -2,10 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from "react-router-dom";
 import axios from "axios";
+import { createContext, useContext } from "react";
 
 // Pages
-import LandingPage from "@/pages/LandingPage";
-import AuthCallback from "@/pages/AuthCallback";
+import EntryPage from "@/pages/EntryPage";
+import ClientAuth from "@/pages/ClientAuth";
+import BuilderAuth from "@/pages/BuilderAuth";
 import ClientDashboard from "@/pages/ClientDashboard";
 import DeveloperDashboard from "@/pages/DeveloperDashboard";
 import TesterDashboard from "@/pages/TesterDashboard";
@@ -17,8 +19,6 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 export const API = `${BACKEND_URL}/api`;
 
 // Auth Context
-import { createContext, useContext } from "react";
-
 const AuthContext = createContext(null);
 
 export const useAuth = () => useContext(AuthContext);
@@ -41,20 +41,8 @@ const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes('session_id=')) {
-      setLoading(false);
-      return;
-    }
     checkAuth();
   }, [checkAuth]);
-
-  const login = () => {
-    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    const redirectUrl = window.location.origin + '/dashboard';
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
-  };
 
   const logout = async () => {
     try {
@@ -66,7 +54,7 @@ const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout, checkAuth }}>
+    <AuthContext.Provider value={{ user, setUser, loading, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
@@ -80,7 +68,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
@@ -90,12 +78,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   }
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    // Redirect to appropriate dashboard based on role
     const dashboardRoutes = {
       client: '/dashboard',
-      developer: '/developer',
-      tester: '/tester',
-      admin: '/admin'
+      developer: '/developer/hub',
+      tester: '/tester/hub',
+      admin: '/admin/work-board'
     };
     return <Navigate to={dashboardRoutes[user.role] || '/dashboard'} replace />;
   }
@@ -110,7 +97,7 @@ const DashboardRouter = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
@@ -121,46 +108,68 @@ const DashboardRouter = () => {
 
   switch (user.role) {
     case 'admin':
-      return <AdminDashboard />;
+      return <Navigate to="/admin/work-board" replace />;
     case 'developer':
-      return <DeveloperDashboard />;
+      return <Navigate to="/developer/hub" replace />;
     case 'tester':
-      return <TesterDashboard />;
+      return <Navigate to="/tester/hub" replace />;
     default:
       return <ClientDashboard />;
   }
 };
 
 function AppRouter() {
-  const location = useLocation();
-  
-  // Check URL fragment for session_id (synchronous check before routing)
-  if (location.hash?.includes('session_id=')) {
-    return <AuthCallback />;
-  }
-
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
+      {/* Public Routes */}
+      <Route path="/" element={<EntryPage />} />
+      
+      {/* Auth Routes */}
+      <Route path="/auth/client" element={<ClientAuth />} />
+      <Route path="/auth/builder" element={<BuilderAuth />} />
+      
+      {/* Client Routes */}
       <Route path="/dashboard" element={<DashboardRouter />} />
       <Route 
-        path="/developer" 
+        path="/request/new" 
+        element={
+          <ProtectedRoute allowedRoles={['client', 'admin']}>
+            <NewRequest />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects/:projectId" 
+        element={
+          <ProtectedRoute>
+            <ProjectDetails />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Developer Routes */}
+      <Route 
+        path="/developer/hub" 
         element={
           <ProtectedRoute allowedRoles={['developer', 'admin']}>
             <DeveloperDashboard />
           </ProtectedRoute>
         } 
       />
+      
+      {/* Tester Routes */}
       <Route 
-        path="/tester" 
+        path="/tester/hub" 
         element={
           <ProtectedRoute allowedRoles={['tester', 'admin']}>
             <TesterDashboard />
           </ProtectedRoute>
         } 
       />
+      
+      {/* Admin Routes */}
       <Route 
-        path="/admin" 
+        path="/admin/work-board" 
         element={
           <ProtectedRoute allowedRoles={['admin']}>
             <AdminDashboard />
@@ -168,21 +177,16 @@ function AppRouter() {
         } 
       />
       <Route 
-        path="/new-request" 
+        path="/admin/*" 
         element={
-          <ProtectedRoute>
-            <NewRequest />
+          <ProtectedRoute allowedRoles={['admin']}>
+            <AdminDashboard />
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/project/:projectId" 
-        element={
-          <ProtectedRoute>
-            <ProjectDetails />
-          </ProtectedRoute>
-        } 
-      />
+      
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

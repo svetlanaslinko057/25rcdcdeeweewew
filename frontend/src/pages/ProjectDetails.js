@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth, API } from '@/App';
 import axios from 'axios';
 import {
   ArrowLeft,
-  Package,
+  CheckCircle2,
   Clock,
-  CheckCircle,
-  AlertCircle,
-  ChevronRight,
+  Package,
   MessageSquare,
-  Plus
+  ExternalLink,
+  AlertCircle
 } from 'lucide-react';
 
 const ProjectDetails = () => {
   const { projectId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  
   const [project, setProject] = useState(null);
   const [deliverables, setDeliverables] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ const ProjectDetails = () => {
         setProject(projectRes.data);
         setDeliverables(deliverablesRes.data);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching project:', error);
       } finally {
         setLoading(false);
       }
@@ -39,33 +39,18 @@ const ProjectDetails = () => {
     fetchData();
   }, [projectId]);
 
-  const stages = [
-    { id: 'discovery', label: 'Discovery' },
-    { id: 'scope', label: 'Scope' },
-    { id: 'design', label: 'Design' },
-    { id: 'development', label: 'Development' },
-    { id: 'qa', label: 'QA' },
-    { id: 'delivery', label: 'Delivery' },
-    { id: 'support', label: 'Support' }
-  ];
-
-  const getCurrentStageIndex = () => {
-    return stages.findIndex(s => s.id === project?.current_stage);
+  const getStageProgress = (stage) => {
+    const stages = ['discovery', 'scope', 'design', 'development', 'qa', 'delivery', 'support'];
+    const index = stages.indexOf(stage);
+    return Math.round(((index + 1) / stages.length) * 100);
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'approved': return 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30';
-      case 'pending': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30';
-      case 'rejected': return 'text-red-400 bg-red-400/10 border-red-400/30';
-      default: return 'text-white/60 bg-white/10 border-white/20';
-    }
-  };
+  const stages = ['discovery', 'scope', 'design', 'development', 'qa', 'delivery', 'support'];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-white/20 border-t-[#FF3B30] rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-white/10 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
@@ -74,13 +59,10 @@ const ProjectDetails = () => {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-white/20 mx-auto mb-4" />
+          <AlertCircle className="w-12 h-12 text-white/30 mx-auto mb-4" />
           <h2 className="text-xl font-semibold mb-2">Project not found</h2>
-          <button 
-            onClick={() => navigate('/dashboard')}
-            className="text-[#FF3B30] hover:text-white transition-colors"
-          >
-            Return to Dashboard
+          <button onClick={() => navigate('/dashboard')} className="text-white/50 hover:text-white">
+            Back to Dashboard
           </button>
         </div>
       </div>
@@ -88,208 +70,174 @@ const ProjectDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white" data-testid="project-details-page">
+    <div className="min-h-screen bg-[#0A0A0A] text-white" data-testid="project-details">
       {/* Header */}
-      <header className="border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-8 py-6">
+      <header className="border-b border-white/10 bg-black/60 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <button 
             onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-6"
-            data-testid="back-to-dashboard-btn"
+            className="flex items-center gap-2 text-white/50 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
+            Back
           </button>
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 
-                className="text-3xl font-bold tracking-tight"
-                style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}
-              >
-                {project.name}
-              </h1>
-              <p className="text-white/60 mt-2">
-                Project ID: {project.project_id}
-              </p>
-            </div>
-            <span className={`inline-flex items-center px-3 py-1 text-sm border ${
-              project.status === 'active' 
-                ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' 
-                : 'text-white/60 bg-white/10 border-white/20'
-            }`}>
-              {project.status}
-            </span>
-          </div>
+          <span className="text-lg font-bold tracking-tight">Dev OS</span>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-8 py-12">
-        {/* Progress Timeline */}
-        <section className="mb-12">
-          <h2 
-            className="text-lg font-semibold mb-6"
-            style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}
-          >
-            Project Progress
-          </h2>
-          <div className="relative">
-            {/* Progress Bar */}
-            <div className="h-1 bg-white/10 absolute top-5 left-0 right-0" />
-            <div 
-              className="h-1 bg-[#FF3B30] absolute top-5 left-0 transition-all"
-              style={{ width: `${((getCurrentStageIndex() + 1) / stages.length) * 100}%` }}
-            />
-            
-            {/* Stage Markers */}
-            <div className="relative flex justify-between">
+      <main className="max-w-5xl mx-auto px-6 py-8">
+        {/* Project Header */}
+        <div className="border border-white/10 p-8 mb-8">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
+              <div className="flex items-center gap-4 mt-3">
+                <span className={`px-3 py-1 text-sm border ${
+                  project.status === 'active' 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-white/5 text-white/50 border-white/10'
+                }`}>
+                  {project.status}
+                </span>
+                <span className="text-white/50 capitalize">{project.current_stage} Stage</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-4xl font-bold">{getStageProgress(project.current_stage)}%</div>
+              <div className="text-white/40 text-sm">Complete</div>
+            </div>
+          </div>
+
+          {/* Stage Progress */}
+          <div className="mt-8">
+            <div className="flex items-center gap-1">
               {stages.map((stage, i) => {
-                const isCompleted = i < getCurrentStageIndex();
-                const isCurrent = i === getCurrentStageIndex();
+                const currentIndex = stages.indexOf(project.current_stage);
+                const isComplete = i < currentIndex;
+                const isCurrent = i === currentIndex;
                 
                 return (
-                  <div key={stage.id} className="flex flex-col items-center">
-                    <div 
-                      className={`w-10 h-10 flex items-center justify-center border-2 z-10 ${
-                        isCompleted 
-                          ? 'bg-[#FF3B30] border-[#FF3B30]' 
-                          : isCurrent 
-                            ? 'bg-[#0A0A0A] border-[#FF3B30]' 
-                            : 'bg-[#0A0A0A] border-white/20'
-                      }`}
-                    >
-                      {isCompleted ? (
-                        <CheckCircle className="w-5 h-5 text-white" />
-                      ) : (
-                        <span className={`text-sm ${isCurrent ? 'text-[#FF3B30]' : 'text-white/40'}`}>
-                          {i + 1}
-                        </span>
-                      )}
+                  <div key={stage} className="flex-1 relative">
+                    <div className={`h-1.5 ${
+                      isComplete ? 'bg-white' : 
+                      isCurrent ? 'bg-white/50' : 
+                      'bg-white/10'
+                    }`} />
+                    <div className={`absolute -bottom-6 left-0 text-xs capitalize ${
+                      isComplete || isCurrent ? 'text-white/70' : 'text-white/30'
+                    }`}>
+                      {i === 0 || i === stages.length - 1 || isCurrent ? stage : ''}
                     </div>
-                    <span className={`text-xs mt-3 ${isCurrent ? 'text-white' : 'text-white/40'}`}>
-                      {stage.label}
-                    </span>
                   </div>
                 );
               })}
             </div>
           </div>
-        </section>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Deliverables */}
-            <section>
-              <div className="flex items-center justify-between mb-6">
-                <h2 
-                  className="text-lg font-semibold"
-                  style={{ fontFamily: 'Cabinet Grotesk, sans-serif' }}
-                >
-                  Deliverables
-                </h2>
+          <div className="lg:col-span-2 space-y-6">
+            {/* Updates */}
+            <div className="border border-white/10 p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-white/50" />
+                Updates
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 p-4 bg-white/[0.02] border border-white/5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Project created</div>
+                    <div className="text-white/40 text-sm mt-1">
+                      Your project is now in the {project.current_stage} stage
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-center text-white/40 text-sm py-4">
+                  More updates will appear as your project progresses
+                </div>
               </div>
+            </div>
 
+            {/* Deliverables */}
+            <div className="border border-white/10 p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-white/50" />
+                Deliverables
+              </h2>
+              
               {deliverables.length === 0 ? (
-                <div className="border border-white/10 p-12 text-center">
-                  <Package className="w-12 h-12 text-white/20 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">No deliverables yet</h3>
-                  <p className="text-sm text-white/60">
-                    Deliverables will appear here as your project progresses
-                  </p>
+                <div className="text-center py-8 text-white/40">
+                  <Package className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No deliverables yet</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {deliverables.map((d, i) => (
-                    <div 
-                      key={d.deliverable_id}
-                      className="border border-white/10 p-6"
-                      data-testid={`deliverable-${i}`}
-                    >
-                      <div className="flex items-start justify-between mb-4">
+                <div className="space-y-3">
+                  {deliverables.map((d) => (
+                    <div key={d.deliverable_id} className="p-4 border border-white/10">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold">{d.title}</h3>
-                          <p className="text-sm text-white/60 mt-1">{d.description}</p>
+                          <h3 className="font-medium">{d.title}</h3>
+                          <p className="text-white/40 text-sm mt-1">{d.description}</p>
                         </div>
-                        <span className={`inline-flex items-center px-2 py-1 text-xs border ${getStatusColor(d.status)}`}>
+                        <span className={`px-2 py-1 text-xs border ${
+                          d.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                          d.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                          'bg-red-500/10 text-red-400 border-red-500/20'
+                        }`}>
                           {d.status}
                         </span>
                       </div>
-                      
-                      {d.links?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4">
-                          {d.links.map((link, j) => (
-                            <a 
-                              key={j}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs px-3 py-1 bg-white/5 text-[#FF3B30] hover:bg-white/10 transition-colors"
-                            >
-                              View Link {j + 1}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-
                       {d.status === 'pending' && (
-                        <div className="flex items-center gap-4 pt-4 border-t border-white/10">
-                          <button className="px-4 py-2 bg-emerald-500 text-white text-sm font-medium hover:bg-emerald-600 transition-colors">
+                        <div className="mt-4 flex items-center gap-2">
+                          <button className="px-3 py-1.5 bg-white text-black text-sm font-medium">
                             Approve
                           </button>
-                          <button className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors">
+                          <button className="px-3 py-1.5 border border-white/20 text-sm">
                             Request Changes
                           </button>
-                        </div>
-                      )}
-
-                      {d.client_feedback && (
-                        <div className="mt-4 pt-4 border-t border-white/10">
-                          <p className="text-sm text-white/60">
-                            <strong>Your feedback:</strong> {d.client_feedback}
-                          </p>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
               )}
-            </section>
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Project Info */}
+            {/* Actions */}
             <div className="border border-white/10 p-6">
-              <h3 className="font-semibold mb-4">Project Info</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/60">Current Stage</span>
-                  <span className="capitalize">{project.current_stage}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/60">Progress</span>
-                  <span>{project.progress}%</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-white/60">Created</span>
-                  <span>{new Date(project.created_at).toLocaleDateString()}</span>
-                </div>
+              <h2 className="text-lg font-semibold mb-4">Actions</h2>
+              <div className="space-y-3">
+                <button className="w-full p-3 border border-white/20 text-sm hover:bg-white/5 transition-all flex items-center justify-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Open Support Ticket
+                </button>
               </div>
             </div>
 
-            {/* Support */}
+            {/* Project Info */}
             <div className="border border-white/10 p-6">
-              <h3 className="font-semibold mb-4">Need Help?</h3>
-              <p className="text-sm text-white/60 mb-4">
-                Have questions or found an issue? Create a support ticket.
-              </p>
-              <button 
-                className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/10 px-4 py-3 text-sm hover:bg-white/10 transition-colors"
-                data-testid="create-support-ticket-btn"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Create Support Ticket
-              </button>
+              <h2 className="text-lg font-semibold mb-4">Project Info</h2>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-white/50">Project ID</span>
+                  <span className="font-mono">{project.project_id.slice(-8)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Status</span>
+                  <span className="capitalize">{project.status}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-white/50">Current Stage</span>
+                  <span className="capitalize">{project.current_stage}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

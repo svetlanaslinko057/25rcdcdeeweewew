@@ -4,6 +4,7 @@ import requests
 import sys
 import json
 from datetime import datetime
+import uuid
 
 class DevelopmentOSAPITester:
     def __init__(self, base_url="https://auth-platform-20.preview.emergentagent.com"):
@@ -12,8 +13,10 @@ class DevelopmentOSAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.results = []
+        self.session = requests.Session()  # For cookie management
+        self.current_user = None
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None, use_session=True):
         """Run a single API test"""
         url = f"{self.api_url}/{endpoint}" if not endpoint.startswith('http') else endpoint
         if headers is None:
@@ -24,14 +27,17 @@ class DevelopmentOSAPITester:
         print(f"   URL: {url}")
         
         try:
+            # Use session for cookie management or regular requests
+            client = self.session if use_session else requests
+            
             if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
+                response = client.get(url, headers=headers, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                response = client.post(url, json=data, headers=headers, timeout=10)
             elif method == 'PUT':
-                response = requests.put(url, json=data, headers=headers, timeout=10)
+                response = client.put(url, json=data, headers=headers, timeout=10)
             elif method == 'DELETE':
-                response = requests.delete(url, headers=headers, timeout=10)
+                response = client.delete(url, headers=headers, timeout=10)
 
             success = response.status_code == expected_status
             if success:
@@ -104,8 +110,230 @@ class DevelopmentOSAPITester:
             "Featured Portfolio Cases",
             "GET",
             "portfolio/featured",
+            200,
+            use_session=False
+        )
+
+    # ============ AUTH TESTS ============
+    
+    def test_quick_auth_new_user(self):
+        """Test POST /api/auth/quick with new user"""
+        test_email = f"test_{uuid.uuid4().hex[:8]}@example.com"
+        success, response = self.run_test(
+            "Quick Auth - New User",
+            "POST",
+            "auth/quick",
+            200,
+            data={
+                "email": test_email,
+                "role": "client"
+            }
+        )
+        
+        if success and response.get("isNew"):
+            print(f"   ✅ New user detected correctly")
+            return True, test_email
+        elif success:
+            print(f"   ❌ Expected new user but got existing user")
+            return False, test_email
+        return False, test_email
+
+    def test_onboarding_flow(self, email):
+        """Test POST /api/auth/onboarding"""
+        success, response = self.run_test(
+            "Complete Onboarding",
+            "POST", 
+            "auth/onboarding",
+            200,
+            data={
+                "email": email,
+                "name": "Test User",
+                "role": "client",
+                "company": "Test Company"
+            }
+        )
+        
+        if success and response.get("user_id"):
+            self.current_user = response
+            print(f"   ✅ User created with ID: {response['user_id']}")
+            return True
+        return False
+
+    def test_auth_me(self):
+        """Test GET /api/auth/me - should return current user"""
+        return self.run_test(
+            "Get Current User",
+            "GET",
+            "auth/me", 
             200
         )
+
+    def test_quick_auth_existing_user(self):
+        """Test POST /api/auth/quick with existing user"""
+        if not self.current_user:
+            print("❌ No current user for existing user test")
+            return False, None
+            
+        success, response = self.run_test(
+            "Quick Auth - Existing User",
+            "POST",
+            "auth/quick",
+            200,
+            data={
+                "email": self.current_user["email"],
+                "role": "client"
+            }
+        )
+        
+        if success and not response.get("isNew"):
+            print(f"   ✅ Existing user detected correctly")
+            return True
+        elif success:
+            print(f"   ❌ Expected existing user but got new user")
+            return False
+        return False
+
+    def test_builder_auth_flow(self):
+        """Test builder auth flow with skill selection"""
+        test_email = f"dev_{uuid.uuid4().hex[:8]}@example.com"
+        
+        # Test quick auth for developer
+        success, response = self.run_test(
+            "Builder Quick Auth",
+            "POST",
+            "auth/quick",
+            200,
+            data={
+                "email": test_email,
+                "role": "developer",
+                "skill": "frontend"
+            }
+        )
+        
+        if not success or not response.get("isNew"):
+            return False
+            
+        # Test onboarding for developer
+        success, response = self.run_test(
+            "Builder Onboarding",
+            "POST",
+            "auth/onboarding", 
+            200,
+            data={
+                "email": test_email,
+                "name": "Test Developer",
+                "role": "developer",
+                "skills": ["frontend"]
+            }
+        )
+        
+        return success and response.get("role") == "developer"
+
+    def test_tester_auth_flow(self):
+        """Test tester auth flow"""
+        test_email = f"tester_{uuid.uuid4().hex[:8]}@example.com"
+        
+        # Test quick auth for tester
+        success, response = self.run_test(
+            "Tester Quick Auth",
+            "POST",
+            "auth/quick",
+            200,
+            data={
+                "email": test_email,
+                "role": "tester",
+                "skill": "tester"
+            }
+        )
+        
+        if not success or not response.get("isNew"):
+            return False
+            
+        # Test onboarding for tester
+        success, response = self.run_test(
+            "Tester Onboarding",
+            "POST",
+            "auth/onboarding",
+            200,
+            data={
+                "email": test_email,
+                "name": "Test Tester",
+                "role": "tester",
+                "skills": ["tester"]
+            }
+        )
+        
+        return success and response.get("role") == "tester"
+
+    # ============ PROTECTED ENDPOINT TESTS ============
+    
+    def test_create_request(self):
+        """Test POST /api/requests - create new project request"""
+        if not self.current_user:
+            print("❌ No authenticated user for request creation")
+            return False
+            
+        success, response = self.run_test(
+            "Create Project Request",
+            "POST",
+            "requests",
+            200,
+            data={
+                "title": "Test Project",
+                "description": "A test project for API testing",
+                "business_idea": "Building a test application to validate the platform"
+            }
+        )
+        
+        if success and response.get("request_id"):
+            print(f"   ✅ Request created with ID: {response['request_id']}")
+            return True
+        return False
+
+    def test_get_my_requests(self):
+        """Test GET /api/requests - get user's requests"""
+        return self.run_test(
+            "Get My Requests",
+            "GET",
+            "requests",
+            200
+        )
+
+    def test_get_my_projects(self):
+        """Test GET /api/projects/mine - get user's projects"""
+        return self.run_test(
+            "Get My Projects", 
+            "GET",
+            "projects/mine",
+            200
+        )
+
+    def test_logout(self):
+        """Test POST /api/auth/logout"""
+        success, response = self.run_test(
+            "Logout",
+            "POST",
+            "auth/logout",
+            200
+        )
+        
+        if success:
+            self.current_user = None
+            print(f"   ✅ User logged out successfully")
+        return success
+
+    def test_unauthorized_access(self):
+        """Test that protected endpoints require authentication after logout"""
+        success, response = self.run_test(
+            "Unauthorized Access Check",
+            "GET",
+            "auth/me",
+            401  # Should be unauthorized
+        )
+        
+        if success:
+            print(f"   ✅ Properly blocked unauthorized access")
+        return success
 
     def print_summary(self):
         """Print test summary"""
@@ -144,6 +372,35 @@ def main():
     # Test portfolio endpoints
     tester.test_portfolio_cases()
     tester.test_featured_cases()
+    
+    # Test authentication flows
+    print("\n🔐 Testing Authentication Flows...")
+    
+    # Test new user registration flow
+    auth_success, test_email = tester.test_quick_auth_new_user()
+    if auth_success:
+        onboarding_success = tester.test_onboarding_flow(test_email)
+        if onboarding_success:
+            # Test authenticated endpoints
+            print("\n🔒 Testing Protected Endpoints...")
+            tester.test_auth_me()
+            tester.test_create_request()
+            tester.test_get_my_requests()
+            tester.test_get_my_projects()
+            
+            # Test existing user flow
+            tester.test_quick_auth_existing_user()
+            
+            # Test logout
+            tester.test_logout()
+            
+            # Test unauthorized access
+            tester.test_unauthorized_access()
+    
+    # Test builder auth flows
+    print("\n👨‍💻 Testing Builder Auth Flows...")
+    tester.test_builder_auth_flow()
+    tester.test_tester_auth_flow()
     
     # Print final summary
     all_passed = tester.print_summary()

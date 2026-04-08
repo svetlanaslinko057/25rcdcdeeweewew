@@ -429,6 +429,118 @@ async def update_user_role(
     return {"message": "Role updated"}
 
 
+# Quick Auth Models
+class QuickAuthRequest(BaseModel):
+    email: str
+    role: str = "client"
+    skill: Optional[str] = None
+
+class OnboardingRequest(BaseModel):
+    email: str
+    name: str
+    role: str = "client"
+    company: Optional[str] = None
+    skills: List[str] = []
+
+
+@api_router.post("/auth/quick")
+async def quick_auth(req: QuickAuthRequest, response: Response):
+    """Quick auth - check if user exists or create pending user"""
+    email = req.email.strip().lower()
+    
+    # Check if user exists
+    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    
+    if existing_user:
+        # User exists - create session and return
+        user_id = existing_user["user_id"]
+        session_token = f"sess_{uuid.uuid4().hex}"
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        
+        session_doc = {
+            "session_id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "session_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.user_sessions.insert_one(session_doc)
+        
+        response.set_cookie(
+            key="session_token",
+            value=session_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+            path="/",
+            max_age=7 * 24 * 60 * 60
+        )
+        
+        if isinstance(existing_user.get("created_at"), str):
+            existing_user["created_at"] = datetime.fromisoformat(existing_user["created_at"])
+        
+        return {"isNew": False, "user": existing_user}
+    
+    # New user - store email temporarily, needs onboarding
+    return {"isNew": True, "email": email}
+
+
+@api_router.post("/auth/onboarding")
+async def complete_onboarding(req: OnboardingRequest, response: Response):
+    """Complete user onboarding"""
+    email = req.email.strip().lower()
+    
+    # Check if user already exists
+    existing_user = await db.users.find_one({"email": email}, {"_id": 0})
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    
+    # Create new user
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user_doc = {
+        "user_id": user_id,
+        "email": email,
+        "name": req.name.strip(),
+        "picture": None,
+        "role": req.role,
+        "company": req.company,
+        "skills": req.skills,
+        "level": "junior",
+        "rating": 5.0,
+        "completed_tasks": 0,
+        "active_load": 0,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    
+    # Create session
+    session_token = f"sess_{uuid.uuid4().hex}"
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    session_doc = {
+        "session_id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.user_sessions.insert_one(session_doc)
+    
+    response.set_cookie(
+        key="session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="none",
+        path="/",
+        max_age=7 * 24 * 60 * 60
+    )
+    
+    user_doc.pop("_id", None)
+    user_doc["created_at"] = datetime.fromisoformat(user_doc["created_at"])
+    return user_doc
+
+
 # ============ PUBLIC ENDPOINTS ============
 
 @api_router.get("/")
